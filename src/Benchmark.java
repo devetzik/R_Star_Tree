@@ -3,7 +3,8 @@
 // Μέτρηση χρόνων κατασκευής index (R*-tree) με δύο τεχνικές
 // (insert ένα-προς-ένα vs bulkLoad) και εκτέλεση ερωτημάτων
 // περιοχής, k-NN και skyline τόσο με σειριακή αναζήτηση (brute‐force)
-// όσο και με τον R*-tree.
+// όσο και με τον R*-tree. Χρησιμοποιεί πλέον την NodeCache
+// εσωτερικά στην RStarTree.
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -38,6 +39,7 @@ public class Benchmark {
             System.out.println("\n2) Δημιουργία κενών DataFile + IndexFile...");
             DataFile dfEmpty = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxEmpty = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
+            // Απλώς για να δημιουργηθούν τα αρχεία, δεν εισάγουμε κόμβους
             RStarTree treeEmpty = new RStarTree(DIMENSIONS, dfEmpty, idxEmpty);
             dfEmpty.close();
             idxEmpty.close();
@@ -49,25 +51,23 @@ public class Benchmark {
             IndexFile idx1 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
             RStarTree tree1 = new RStarTree(DIMENSIONS, df1, idx1);
 
-            // Εμφάνιση εκκίνησης
             System.out.println("   Ξεκινάει το insert ένα-προς-ένα...");
-
             long tInsertStart = System.nanoTime();
             int counter = 0;
             for (Record r : records) {
                 tree1.insert(r);
                 counter++;
-                // Print πιο συχνά, κάθε 200 εγγραφές
                 if (counter % 200 == 0) {
                     System.out.printf("     -> Έχουν εισαχθεί %d/%d εγγραφές...%n",
                             counter, records.size());
                 }
             }
-            // Ολοκληρώθηκε ο βρόχος
             long tInsertEnd = System.nanoTime();
             System.out.printf("   Ολοκληρώθηκε insert ένα-προς-ένα: %.2f ms%n",
                     (tInsertEnd - tInsertStart) / 1_000_000.0);
 
+            // Κλείνουμε τα αρχεία (η NodeCache θα γράψει αυτόματα τα dirty nodes όταν
+            // εκδιώξουν κόμβους ή όταν το πρόγραμμα τερματίσει)
             df1.close();
             idx1.close();
 
@@ -82,6 +82,7 @@ public class Benchmark {
             long tBulkEnd = System.nanoTime();
             System.out.printf("   BulkLoad %d εγγραφών σε R*-tree: %.2f ms%n",
                     records.size(), (tBulkEnd - tBulkStart) / 1_000_000.0);
+
             df2.close();
             idx2.close();
 
@@ -189,6 +190,9 @@ public class Benchmark {
     //  Βοηθητικές Μέθοδοι
     // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Διαβάζει όλους τους <node> από το αρχείο OSM και επιστρέφει λίστα Record.
+     */
     private static List<Record> loadAllOSMRecords(String osmFilename)
             throws ParserConfigurationException, SAXException, IOException {
         List<Record> out = new ArrayList<>();
@@ -215,7 +219,7 @@ public class Benchmark {
                             currentLon = Double.parseDouble(attributes.getValue("lon"));
                         } else if (inNode && qName.equals("tag")) {
                             String k = attributes.getValue("k");
-                            if (k != null && k.equals("name")) {
+                            if ("name".equals(k)) {
                                 currentName = attributes.getValue("v");
                             }
                         }
@@ -235,6 +239,9 @@ public class Benchmark {
         return out;
     }
 
+    /**
+     * Σειριακό range query: διατρέχει όλα τα blocks στον dataFile.
+     */
     private static List<RecordPointer> rangeQuerySerial(DataFile df,
                                                         double[] minCoords,
                                                         double[] maxCoords) throws IOException {
@@ -285,6 +292,9 @@ public class Benchmark {
         return result;
     }
 
+    /**
+     * Σειριακό k-NN query: υπολογίζει απόσταση Euclidean από κάθε σημείο.
+     */
     private static List<RecordPointer> kNNQuerySerial(DataFile df,
                                                       double[] queryPt,
                                                       int k) throws IOException {
@@ -293,7 +303,7 @@ public class Benchmark {
             RecordPointer rp;
             Pair(double d, RecordPointer rp) {
                 this.dist = d;
-                this.rp = rp;
+                this.rp   = rp;
             }
         }
         List<Pair> distList = new ArrayList<>();
@@ -347,6 +357,9 @@ public class Benchmark {
         return result;
     }
 
+    /**
+     * Σειριακό skyline query: O(n²).
+     */
     private static List<RecordPointer> skylineSerial(DataFile df) throws IOException {
         class PointWithRP {
             double[] coords;

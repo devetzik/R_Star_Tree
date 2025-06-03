@@ -4,24 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="initial commit. works">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/IndexFile.java" afterDir="false" />
+    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="add indexfile. no cache for &quot;one by one insert&quot;">
+      <change afterPath="$PROJECT_DIR$/map.dbf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/NodeCache.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Benchmark.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Benchmark.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/DataFile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/DataFile.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Demo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Demo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Entry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Entry.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/MBR.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MBR.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/NNEntry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/NNEntry.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Node.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Node.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/OSMParser.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/OSMParser.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/RStarTree.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RStarTree.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Record.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Record.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RecordPointer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RecordPointer.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,7 +81,14 @@
       <option name="project" value="LOCAL" />
       <updated>1748900103341</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="add indexfile. no cache for &quot;one by one insert&quot;">
+      <created>1748957983038</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1748957983038</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -121,6 +116,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="initial commit. works" />
-    <option name="LAST_COMMIT_MESSAGE" value="initial commit. works" />
+    <MESSAGE value="add indexfile. no cache for &quot;one by one insert&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="add indexfile. no cache for &quot;one by one insert&quot;" />
   </component>
 </project>

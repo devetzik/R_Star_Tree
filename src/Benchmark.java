@@ -1,11 +1,3 @@
-// Benchmark.java
-//
-// Μέτρηση χρόνων κατασκευής index (R*-tree) με δύο τεχνικές
-// (insert ένα-προς-ένα vs bulkLoad) και εκτέλεση ερωτημάτων
-// περιοχής, k-NN και skyline τόσο με σειριακή αναζήτηση (brute‐force)
-// όσο και με τον R*-tree. Χρησιμοποιεί πλέον την NodeCache
-// εσωτερικά στην RStarTree.
-
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -27,7 +19,9 @@ public class Benchmark {
 
     public static void main(String[] args) {
         try {
-            // 1) Φόρτωση όλων των κόμβων από το OSM σε List<Record>
+            // ───────────────────────────────────────────────────────────────
+            // 1) Φόρτωση όλων των κόμβων από το OSM σε λίστα Record
+            // ───────────────────────────────────────────────────────────────
             System.out.println("1) Φόρτωση OSM κόμβων σε ενδιάμεση λίστα Record...");
             long t0 = System.nanoTime();
             List<Record> records = loadAllOSMRecords(OSM_FILE);
@@ -35,43 +29,51 @@ public class Benchmark {
             System.out.printf("   Φορτώθηκαν %d κόμβοι σε %.2f ms%n",
                     records.size(), (t1 - t0) / 1_000_000.0);
 
-            // 2) Δημιουργία κενών DataFile + IndexFile
-            System.out.println("\n2) Δημιουργία κενών DataFile + IndexFile...");
-            DataFile dfEmpty = new DataFile(DATAFILE_NAME, DIMENSIONS);
-            IndexFile idxEmpty = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
-            // Απλώς για να δημιουργηθούν τα αρχεία, δεν εισάγουμε κόμβους
-            RStarTree treeEmpty = new RStarTree(DIMENSIONS, dfEmpty, idxEmpty);
-            dfEmpty.close();
-            idxEmpty.close();
-            System.out.println("   DataFile και IndexFile δημιουργήθηκαν κενά.");
+            // ───────────────────────────────────────────────────────────────
+            // 2) Γράφουμε **μία φορά** όλα τα records στο DataFile
+            //    (σειριακή εισαγωγή), αποθηκεύουμε (RecordPointer, coords)
+            //    σε δύο λίστες, ώστε στο index build να μην ξανασκανάρουμε
+            //    τον δίσκο για το DataFile.
+            // ───────────────────────────────────────────────────────────────
+            System.out.println("\n2) Μία φορά σειριακή εισαγωγή όλων των Record στο DataFile...");
+            DataFile dfInit = new DataFile(DATAFILE_NAME, DIMENSIONS);
 
-            // 3) Κατασκευή R*-tree με insert ένα-προς-ένα
-            System.out.println("\n3) Κατασκευή R*-tree με insert ένα-προς-ένα...");
+            List<RecordPointer> allPointers = new ArrayList<>(records.size());
+            List<double[]>      allCoords   = new ArrayList<>(records.size());
+            long tDFStart = System.nanoTime();
+            for (Record r : records) {
+                RecordPointer rp = dfInit.insertRecord(r);
+                allPointers.add(rp);
+                allCoords.add(r.getCoords());
+            }
+            long tDFEnd = System.nanoTime();
+            System.out.printf("   Ολοκληρώθηκε DataFile insert: %.2f ms%n",
+                    (tDFEnd - tDFStart) / 1_000_000.0);
+
+            dfInit.close();
+
+            // ───────────────────────────────────────────────────────────────
+            // 3) Κατασκευή R*-tree με “insert ένα-προς-ένα” (με insertPointer)
+            // ───────────────────────────────────────────────────────────────
+            System.out.println("\n3) Κατασκευή R*-tree με insertPointer (ένα-προς-ένα)...");
             DataFile df1 = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idx1 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
             RStarTree tree1 = new RStarTree(DIMENSIONS, df1, idx1);
 
-            System.out.println("   Ξεκινάει το insert ένα-προς-ένα...");
             long tInsertStart = System.nanoTime();
-            int counter = 0;
-            for (Record r : records) {
-                tree1.insert(r);
-                counter++;
-                if (counter % 200 == 0) {
-                    System.out.printf("     -> Έχουν εισαχθεί %d/%d εγγραφές...%n",
-                            counter, records.size());
-                }
+            for (int i = 0; i < allPointers.size(); i++) {
+                tree1.insertPointer(allPointers.get(i), allCoords.get(i));
             }
             long tInsertEnd = System.nanoTime();
-            System.out.printf("   Ολοκληρώθηκε insert ένα-προς-ένα: %.2f ms%n",
+            System.out.printf("   Ολοκληρώθηκε insertPointer ένα-προς-ένα: %.2f ms%n",
                     (tInsertEnd - tInsertStart) / 1_000_000.0);
 
-            // Κλείνουμε τα αρχεία (η NodeCache θα γράψει αυτόματα τα dirty nodes όταν
-            // εκδιώξουν κόμβους ή όταν το πρόγραμμα τερματίσει)
             df1.close();
             idx1.close();
 
+            // ───────────────────────────────────────────────────────────────
             // 4) Κατασκευή R*-tree με bulkLoad
+            // ───────────────────────────────────────────────────────────────
             System.out.println("\n4) Κατασκευή R*-tree με bulkLoad...");
             DataFile df2 = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idx2 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -86,11 +88,15 @@ public class Benchmark {
             df2.close();
             idx2.close();
 
+            // ───────────────────────────────────────────────────────────────
             // 5) Προετοιμασία τυχαίων σημείων για queries
+            // ───────────────────────────────────────────────────────────────
             System.out.println("\n5) Προετοιμασία τυχαίων ερωτημάτων...");
             List<double[]> samplePoints = pickRandomCoordinates(records, NUM_POINTS_FOR_QUERIES);
 
+            // ───────────────────────────────────────────────────────────────
             // 6) Εκτέλεση Range Queries
+            // ───────────────────────────────────────────────────────────────
             System.out.println("\n6) Ερωτήματα περιοχής (Range Queries):");
             DataFile dfSerialRange = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForRange = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -124,7 +130,9 @@ public class Benchmark {
             dfSerialRange.close();
             idxForRange.close();
 
+            // ───────────────────────────────────────────────────────────────
             // 7) Εκτέλεση k-NN Queries
+            // ───────────────────────────────────────────────────────────────
             System.out.println("\n7) Ερωτήματα k-NN:");
             DataFile dfSerialKNN = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForKNN = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -155,7 +163,9 @@ public class Benchmark {
             dfSerialKNN.close();
             idxForKNN.close();
 
+            // ───────────────────────────────────────────────────────────────
             // 8) Εκτέλεση Skyline Query
+            // ───────────────────────────────────────────────────────────────
             System.out.println("\n8) Ερώτημα Skyline:");
             DataFile dfSerialSky = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForSky = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -180,8 +190,8 @@ public class Benchmark {
             idxForSky.close();
 
             System.out.println("\n== Ολοκλήρωση Benchmark ==");
-
-        } catch (IOException | ParserConfigurationException | SAXException e) {
+        }
+        catch (IOException | ParserConfigurationException | SAXException e) {
             e.printStackTrace();
         }
     }
@@ -190,9 +200,6 @@ public class Benchmark {
     //  Βοηθητικές Μέθοδοι
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Διαβάζει όλους τους <node> από το αρχείο OSM και επιστρέφει λίστα Record.
-     */
     private static List<Record> loadAllOSMRecords(String osmFilename)
             throws ParserConfigurationException, SAXException, IOException {
         List<Record> out = new ArrayList<>();
@@ -239,20 +246,17 @@ public class Benchmark {
         return out;
     }
 
-    /**
-     * Σειριακό range query: διατρέχει όλα τα blocks στον dataFile.
-     */
     private static List<RecordPointer> rangeQuerySerial(DataFile df,
                                                         double[] minCoords,
                                                         double[] maxCoords) throws IOException {
         List<RecordPointer> result = new ArrayList<>();
         FileChannel channel = df.getChannel();
-        int blockSize = DataFile.BLOCK_SIZE;
-        long fileSize = new RandomAccessFile(DATAFILE_NAME, "r").length();
-        int totalBlocks = (int) (fileSize / blockSize);
-        int dim = df.getDimension();
-        int slotsPerBlock = df.getSlotsPerBlock();
-        int recordSize = df.getRecordSize();
+        int blockSize    = DataFile.BLOCK_SIZE;
+        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        int totalBlocks  = (int) (fileSize / blockSize);
+        int dim          = df.getDimension();
+        int slotsPerBlock= df.getSlotsPerBlock();
+        int recordSize   = df.getRecordSize();
 
         for (int blkId = 0; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
@@ -267,7 +271,7 @@ public class Benchmark {
                 channel.read(idBuf, slotPos);
                 idBuf.flip();
                 long id = idBuf.getLong();
-                if (id == -1L) continue; // Διαγραμμένο
+                if (id == -1L) continue; // διαγραμμένο
 
                 long coordsPos = slotPos + 8 + 256;
                 ByteBuffer coordsBuf = ByteBuffer.allocate(8 * dim);
@@ -292,9 +296,6 @@ public class Benchmark {
         return result;
     }
 
-    /**
-     * Σειριακό k-NN query: υπολογίζει απόσταση Euclidean από κάθε σημείο.
-     */
     private static List<RecordPointer> kNNQuerySerial(DataFile df,
                                                       double[] queryPt,
                                                       int k) throws IOException {
@@ -309,12 +310,12 @@ public class Benchmark {
         List<Pair> distList = new ArrayList<>();
 
         FileChannel channel = df.getChannel();
-        int blockSize = DataFile.BLOCK_SIZE;
-        long fileSize = new RandomAccessFile(DATAFILE_NAME, "r").length();
-        int totalBlocks = (int) (fileSize / blockSize);
-        int dim = df.getDimension();
-        int slotsPerBlock = df.getSlotsPerBlock();
-        int recordSize = df.getRecordSize();
+        int blockSize    = DataFile.BLOCK_SIZE;
+        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        int totalBlocks  = (int) (fileSize / blockSize);
+        int dim          = df.getDimension();
+        int slotsPerBlock= df.getSlotsPerBlock();
+        int recordSize   = df.getRecordSize();
 
         for (int blkId = 0; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
@@ -357,9 +358,6 @@ public class Benchmark {
         return result;
     }
 
-    /**
-     * Σειριακό skyline query: O(n²).
-     */
     private static List<RecordPointer> skylineSerial(DataFile df) throws IOException {
         class PointWithRP {
             double[] coords;
@@ -368,12 +366,12 @@ public class Benchmark {
         List<PointWithRP> points = new ArrayList<>();
 
         FileChannel channel = df.getChannel();
-        int blockSize = DataFile.BLOCK_SIZE;
-        long fileSize = new RandomAccessFile(DATAFILE_NAME, "r").length();
-        int totalBlocks = (int) (fileSize / blockSize);
-        int dim = df.getDimension();
-        int slotsPerBlock = df.getSlotsPerBlock();
-        int recordSize = df.getRecordSize();
+        int blockSize    = DataFile.BLOCK_SIZE;
+        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        int totalBlocks  = (int) (fileSize / blockSize);
+        int dim          = df.getDimension();
+        int slotsPerBlock= df.getSlotsPerBlock();
+        int recordSize   = df.getRecordSize();
 
         for (int blkId = 0; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;

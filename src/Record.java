@@ -1,18 +1,18 @@
 // Record.java
 //
-// Αντικείμενο που αναπαριστά ένα «record» με id, όνομα και d-διαστασιακές συντεταγμένες.
-// Χρησιμοποιείται για να γράψουμε/διαβάσουμε την εγγραφή στον DataFile.
-import java.util.Arrays;
+// Αναπαριστά ένα σημείο (node) με id, όνομα, και διάνυσμα συντεταγμένων.
 
-public class Record {
-    private final long id;
-    private final String name;
-    private final double[] coords;
+import java.io.Serializable;
+
+public class Record implements Serializable {
+    private long id;
+    private String name;
+    private double[] coords;
 
     public Record(long id, String name, double[] coords) {
         this.id = id;
         this.name = name;
-        this.coords = coords.clone();
+        this.coords = coords;
     }
 
     public long getId() {
@@ -24,12 +24,7 @@ public class Record {
     }
 
     public double[] getCoords() {
-        return coords.clone();
-    }
-
-    @Override
-    public String toString() {
-        return "Record{id=" + id + ", name='" + name + '\'' +
-                ", coords=" + Arrays.toString(coords) + '}';
+        return coords;
     }
 }
+

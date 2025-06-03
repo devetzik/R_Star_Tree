@@ -1,27 +1,26 @@
 // MBR.java
 //
-// Minimal Bounding Rectangle (Hyper-Rectangle) για d-διαστασιακά αντικείμενα.
-// Περιέχει συντεταγμένες min[] και max[] και παρέχει βοηθητικές μεθόδους
-// για area(), margin(), enlargement(), overlap(), minDist() κ.λπ.
+// Minimum Bounding Rectangle: κρατάει πίνακες min[] και max[] διαστάσεων DIM.
 
-public class MBR {
-    private final double[] min;  // μήκος = d
-    private final double[] max;  // μήκος = d
+import java.util.Arrays;
+
+public class MBR implements Cloneable {
+    private double[] min;
+    private double[] max;
 
     public MBR(double[] min, double[] max) {
-        this.min = min.clone();
-        this.max = max.clone();
+        this.min = Arrays.copyOf(min, min.length);
+        this.max = Arrays.copyOf(max, max.length);
     }
 
     public double[] getMin() {
-        return min.clone();
+        return min;
     }
 
     public double[] getMax() {
-        return max.clone();
+        return max;
     }
 
-    /** Επιστρέφει το n-διάστατο «όγκο» (area για d=2, volume για d=3 κ.λπ.). */
     public double area() {
         double a = 1.0;
         for (int i = 0; i < min.length; i++) {
@@ -30,94 +29,74 @@ public class MBR {
         return a;
     }
 
-    /** Επιστρέφει το άθροισμα των ακμών (margin), που χρησιμοποιείται από R*-tree. */
-    public double margin() {
-        double sum = 0.0;
-        for (int i = 0; i < min.length; i++) {
-            sum += (max[i] - min[i]);
-        }
-        return sum;
-    }
-
-    /** Δημιουργεί ένα νέο MBR = ένωση (union) των δύο δεδομένων. */
-    public static MBR union(MBR a, MBR b) {
-        int d = a.min.length;
-        double[] mn = new double[d], mx = new double[d];
-        for (int i = 0; i < d; i++) {
-            mn[i] = Math.min(a.min[i], b.min[i]);
-            mx[i] = Math.max(a.max[i], b.max[i]);
-        }
-        return new MBR(mn, mx);
-    }
-
-    /** Καλογραμμή: επιστρέφει το νέο area - παλιό area. */
     public double enlargement(MBR other) {
-        MBR u = union(this, other);
-        return u.area() - this.area();
-    }
-
-    /**
-     * Υπολογίζει τον υπερ-όγκο της τομής (overlap) μεταξύ this και other.
-     * Αν δεν υπάρχει τομή, επιστρέφει 0.
-     */
-    public double overlap(MBR other) {
-        double overlapVol = 1.0;
+        double[] newMin = new double[min.length];
+        double[] newMax = new double[max.length];
         for (int i = 0; i < min.length; i++) {
-            double l = Math.max(this.min[i], other.min[i]);
-            double r = Math.min(this.max[i], other.max[i]);
-            if (r <= l) return 0.0;  // δεν υπάρχει επικάλυψη
-            overlapVol *= (r - l);
+            newMin[i] = Math.min(min[i], other.min[i]);
+            newMax[i] = Math.max(max[i], other.max[i]);
         }
-        return overlapVol;
+        double newArea = 1.0;
+        for (int i = 0; i < newMin.length; i++) {
+            newArea *= (newMax[i] - newMin[i]);
+        }
+        return newArea - area();
     }
 
-    /**
-     * Υπολογίζει την ελάχιστη Ευκλείδεια απόσταση από ένα σημείο p (αν είναι εντός του κουτιού,
-     * επιστρέφει 0).
-     */
-    public double minDist(double[] p) {
-        double sum = 0.0;
-        for (int i = 0; i < p.length; i++) {
-            double ri;
-            if (p[i] < min[i])        ri = min[i];
-            else if (p[i] > max[i])   ri = max[i];
-            else                       ri = p[i];
-            sum += (p[i] - ri) * (p[i] - ri);
+    public boolean overlaps(MBR other) {
+        for (int i = 0; i < min.length; i++) {
+            if (max[i] < other.min[i] || other.max[i] < min[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean isContainedIn(MBR other) {
+        for (int i = 0; i < min.length; i++) {
+            if (min[i] < other.min[i] || max[i] > other.max[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public double minDist(double[] point) {
+        double sum = 0;
+        for (int i = 0; i < point.length; i++) {
+            double di = 0.0;
+            if (point[i] < min[i]) {
+                di = min[i] - point[i];
+            } else if (point[i] > max[i]) {
+                di = point[i] - max[i];
+            } else {
+                di = 0;
+            }
+            sum += di * di;
         }
         return Math.sqrt(sum);
     }
 
-    /** Επιστρέφει αν το this MBR περιέχεται πλήρως μέσα στο other. */
-    public boolean isContainedIn(MBR other) {
+    public double margin() {
+        double sum = 0;
         for (int i = 0; i < min.length; i++) {
-            if (this.min[i] < other.min[i] || this.max[i] > other.max[i]) {
-                return false;
-            }
+            sum += (max[i] - min[i]);
         }
-        return true;
+        return 2.0 * sum;
     }
 
-    /** Επιστρέφει αν το this MBR επικαλύπτεται με το other (κοινό σημείο). */
-    public boolean overlaps(MBR other) {
-        for (int i = 0; i < min.length; i++) {
-            if (this.max[i] < other.min[i] || this.min[i] > other.max[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /** Κλωνοποιητής ώστε οι μεταβολές σε αντίγραφο να μην επηρεάζουν το πρωτότυπο. */
     @Override
     public MBR clone() {
         return new MBR(min, max);
     }
 
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("MBR[");
-        sb.append("min=").append(java.util.Arrays.toString(min));
-        sb.append(", max=").append(java.util.Arrays.toString(max)).append("]");
-        return sb.toString();
+    public static MBR union(MBR a, MBR b) {
+        double[] newMin = new double[a.min.length];
+        double[] newMax = new double[a.min.length];
+        for (int i = 0; i < a.min.length; i++) {
+            newMin[i] = Math.min(a.min[i], b.min[i]);
+            newMax[i] = Math.max(a.max[i], b.max[i]);
+        }
+        return new MBR(newMin, newMax);
     }
 }

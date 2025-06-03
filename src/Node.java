@@ -1,29 +1,25 @@
 // Node.java
 //
-// Κλάση που αναπαριστά έναν κόμβο στο R*-tree. Περιέχει λίστα με Entry,
-// το MBR που καλύπτει τις εγγραφές του, δείκτη στον γονέα, επίπεδο (0=leaf),
-// κ.λπ.
+// Κλάση που αναπαριστά έναν κόμβο στο R*-tree.
+// Κάθε κόμβος έχει level (0=leaf), isLeaf flag, λίστα Entry, MBR, parentPage, pageId.
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Node {
-    private final int level;          // 0 = leaf, >0 = internal
-    private final boolean isLeaf;
-    private final List<Entry> entries;
-    private MBR mbr;                  // MBR που καλύπτει όλα τα entries
-    private Node parent;              // null αν είναι root
+    private int level;
+    private boolean isLeaf;
+    private List<Entry> entries;
+    private MBR mbr;
+    private int parentPage = -1;
+    private int pageId = -1;
 
-    /**
-     * @param level   Το επίπεδο (0=φυλλο, >0 εσωτερικός).
-     * @param isLeaf  true αν είναι leaf.
-     */
     public Node(int level, boolean isLeaf) {
         this.level = level;
         this.isLeaf = isLeaf;
         this.entries = new ArrayList<>();
+        // Εδώ δεν ορίζουμε mbr ακόμη (θα υπολογιστεί όταν προστεθεί το πρώτο entry)
         this.mbr = null;
-        this.parent = null;
     }
 
     public int getLevel() {
@@ -38,83 +34,58 @@ public class Node {
         return entries;
     }
 
+    public int getParentPage() {
+        return parentPage;
+    }
+
+    public void setParentPage(int parentPage) {
+        this.parentPage = parentPage;
+    }
+
+    public int getPageId() {
+        return pageId;
+    }
+
+    public void setPageId(int pageId) {
+        this.pageId = pageId;
+    }
+
     public MBR getMBR() {
-        return mbr == null ? null : mbr.clone();
+        return mbr;
     }
 
-    public Node getParent() {
-        return parent;
-    }
-
-    public void setParent(Node p) {
-        this.parent = p;
-    }
-
-    /**
-     * Ενημερώνει το MBR του κόμβου ώστε να περιλάβει το νέοRect (τεμνόμενο με υφιστάμενο).
-     * Αν δεν υπάρχει προηγούμενο mbr, το θέτει ίσο με αυτό που περάσαμε.
-     */
-    public void updateMBR(MBR rect) {
-        if (mbr == null) {
-            mbr = rect.clone();
-        } else {
-            mbr = MBR.union(mbr, rect);
-        }
-        // Ενημέρωση αναδρομικά προς τα πάνω
-        if (parent != null) {
-            parent.recomputeMBRUpward();
-        }
-    }
-
-    /**
-     * Επαναϋπολογίζει (recompute) το MBR βασισμένο σε όλα τα entries. Καλείται
-     * όταν έσβησα/έβγαλα ένα entry ή μετά από split/σειρά εις άτοπον.
-     */
-    public void recomputeMBRUpward() {
-        MBR agg = null;
-        for (Entry e : entries) {
-            if (agg == null) {
-                agg = e.getMBR().clone();
-            } else {
-                agg = MBR.union(agg, e.getMBR());
-            }
-        }
-        mbr = agg;
-        if (parent != null) {
-            parent.recomputeMBRUpward();
-        }
-    }
-
-    /**
-     * Προσθέτει ένα entry στον κόμβο.
-     */
     public void addEntry(Entry e) {
         entries.add(e);
-        if (e.isInternalEntry()) {
-            e.getChild().setParent(this);
+        if (mbr == null) {
+            mbr = e.getMBR().clone();
+        } else {
+            mbr = MBR.union(mbr, e.getMBR());
         }
-        updateMBR(e.getMBR());
     }
 
-    /**
-     * Αφαιρεί ένα entry από τον κόμβο.
-     */
     public void removeEntry(Entry e) {
         entries.remove(e);
-        recomputeMBRUpward();
+        recomputeMBR();
     }
 
-    /**
-     * Επιστρέφει αν ο κόμβος έχει πλέον λιγότερα entries από το κατώτερο όριο.
-     * (Χρησιμοποιείται κατά τη διαγραφή.)
-     */
+    public void recomputeMBR() {
+        if (entries.isEmpty()) {
+            mbr = null;
+            return;
+        }
+        MBR newMBR = entries.get(0).getMBR().clone();
+        for (int i = 1; i < entries.size(); i++) {
+            newMBR = MBR.union(newMBR, entries.get(i).getMBR());
+        }
+        mbr = newMBR;
+    }
+
+    public void recomputeMBRUpward() {
+        recomputeMBR();
+        // Ο γονέας θα ενημερωθεί από το RStarTree όταν χρειάζεται
+    }
+
     public boolean underflows(int m) {
         return entries.size() < m;
-    }
-
-    @Override
-    public String toString() {
-        return "Node{level=" + level + ", isLeaf=" + isLeaf +
-                ", #entries=" + entries.size() + "}";
     }
 }

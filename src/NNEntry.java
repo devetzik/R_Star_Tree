@@ -1,33 +1,30 @@
 // NNEntry.java
 //
-// Ένα «wrapper» που χρησιμοποιείται στον k-NN αλγόριθμο Best-First (PriorityQueue).
-// Περιέχει ή έναν κόμβο (isNode=true) ή ένα Entry (leaf result) με τη σχετική
-// απόσταση dist.
+// Χρησιμοποιείται για best-first k-NN query: είτε Node με dist, είτε Entry με dist.
+
+import java.util.Comparator;
 
 public class NNEntry implements Comparable<NNEntry> {
-    private final boolean isNode;
-    private final Node node;      // αν isNode=true
-    private final Entry entry;    // αν isNode=false
-    private final double dist;    // η απόσταση από το query point
+    private Node node;      // αν πρόκειται για κόμβο
+    private Entry entry;    // αν πρόκειται για leaf entry
+    private double distance;
 
-    /** Κατασκευαστής για κόμβο. */
-    public NNEntry(Node node, double dist) {
-        this.isNode = true;
+    // Constructor για node
+    public NNEntry(Node node, double distance) {
         this.node = node;
         this.entry = null;
-        this.dist = dist;
+        this.distance = distance;
     }
 
-    /** Κατασκευαστής για leaf-entry. */
-    public NNEntry(Entry entry, double dist) {
-        this.isNode = false;
-        this.node = null;
+    // Constructor για entry
+    public NNEntry(Entry entry, double distance) {
         this.entry = entry;
-        this.dist = dist;
+        this.node = null;
+        this.distance = distance;
     }
 
     public boolean isNode() {
-        return isNode;
+        return node != null;
     }
 
     public Node getNode() {
@@ -38,12 +35,12 @@ public class NNEntry implements Comparable<NNEntry> {
         return entry;
     }
 
-    public double getDist() {
-        return dist;
+    public double getDistance() {
+        return distance;
     }
 
     @Override
-    public int compareTo(NNEntry o) {
-        return Double.compare(this.dist, o.dist);
+    public int compareTo(NNEntry other) {
+        return Double.compare(this.distance, other.distance);
     }
 }

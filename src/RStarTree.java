@@ -1,63 +1,64 @@
 // RStarTree.java
 //
-// Ένα R*-tree για d-διαστασιακά σημεία, υποστηρίζει insert, delete,
-// range query, k-NN query, skyline, bulk-load. Έχει διορθωθεί η
-// μέθοδος reinsert ώστε να μην προκαλεί σφάλμα “Δεν βρέθηκε κατάλληλο internal entry”
-// όταν επανεισάγονται εγγραφές.
+// Κύρια κλάση του R*-tree, χωρίς χρήση cache αλλά με σωστή ενημέρωση parentPage
+// κάθε φορά που “κατεβάζουμε” έναν κόμβο από το IndexFile.
 
 import java.io.IOException;
 import java.util.*;
 
 public class RStarTree {
-    private final int DIM;             // αριθμός διαστάσεων
-    private final int M = 50;          // μέγιστος αριθμός entries ανά κόμβο
-    private final int m = 25;          // ελάχιστος γεμισμός
-    private Node root;
-    private final DataFile dataFile;
+    private final int DIM;
+    private final int M = 50;
+    private final int m = 25;
 
-    public RStarTree(int d, DataFile df) {
+    private DataFile dataFile;
+    private IndexFile indexFile;
+    private Node root;
+
+    public RStarTree(int d, DataFile df, IndexFile idx) throws IOException {
         this.DIM = d;
         this.dataFile = df;
-        this.root = new Node(0, true);  // αρχικά ο root είναι απλό φύλλο
+        this.indexFile = idx;
+        // Δημιουργούμε κενό root (leaf) και το γράφουμε στο indexfile
+        Node newRoot = new Node(0, true);
+        int rootPage = indexFile.writeNode(-1, newRoot);
+        newRoot.setPageId(rootPage);
+        newRoot.setParentPage(-1);
+        this.root = newRoot;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  ΕΙΣΑΓΩΓΗ (Insertion)
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
-     * Εισάγει ένα Record:
-     *  α) το γράφει στο DataFile → παίρνει RecordPointer
-     *  β) φτιάχνει MBR γύρω από το σημείο (coords, coords)
-     *  γ) βάζει νέο Entry στο κατάλληλο φύλλο
+     * Εισαγωγή ενός Record: πρώτα στο DataFile → παίρνουμε RecordPointer,
+     * μετά φτιάχνουμε νέο leaf‐entry και το εισάγουμε στο R*-tree.
      */
     public RecordPointer insert(Record rec) throws IOException {
-        // Αποθήκευση στο DataFile
+        // 1) DataFile
         RecordPointer rp = dataFile.insertRecord(rec);
-
-        // Φτιάχνουμε MBR για το σημείο
+        // 2) Νέο leaf‐Entry
         MBR singleMBR = new MBR(rec.getCoords(), rec.getCoords());
         Entry newEntry = new Entry(singleMBR, rp);
 
-        // Βρίσκουμε το φύλλο
+        // 3) Βρίσκουμε το κατάλληλο φύλλο
         Node leaf = chooseLeaf(root, newEntry);
         leaf.addEntry(newEntry);
+        indexFile.writeNode(leaf.getPageId(), leaf);
 
         if (leaf.getEntries().size() > M) {
             handleOverflow(leaf);
         }
 
-        // Αν ο root άλλαξε (split), το ανεβάζουμε
-        if (root.getParent() != null) {
-            root = root.getParent();
+        // 4) Αν το root άλλαξε (parentPage ≥ 0), το φορτώνουμε
+        if (root.getParentPage() >= 0) {
+            root = indexFile.readNode(root.getParentPage());
         }
         return rp;
     }
 
     /**
-     * Επιλέγει το κατάλληλο φύλλο (level == 0) βάσει ελάχιστης enlargement.
+     * Επιλογή φύλλου (chooseLeaf). Κάθε φορά που “κατεβάζουμε” εσωτερικό κόμβο,
+     * ενημερώνουμε και το parentPage του παιδιού.
      */
-    private Node chooseLeaf(Node curr, Entry e) {
+    private Node chooseLeaf(Node curr, Entry e) throws IOException {
         if (curr.isLeaf()) {
             return curr;
         }
@@ -65,29 +66,72 @@ public class RStarTree {
         double bestInc = Double.POSITIVE_INFINITY;
         double bestArea = Double.POSITIVE_INFINITY;
 
+        // 1) Προσπάθεια να βρούμε internal child με κατάλληλο επίπεδο
         for (Entry c : curr.getEntries()) {
-            double inc = c.getMBR().enlargement(e.getMBR());
-            double area = c.getMBR().area();
-            if (inc < bestInc
-                    || (inc == bestInc && area < bestArea)
-                    || (inc == bestInc && area == bestArea
-                    && c.getChild().getEntries().size() < best.getChild().getEntries().size())) {
-                best = c;
-                bestInc = inc;
-                bestArea = area;
+            if (!c.isInternalEntry()) continue; // φιλτράρουμε leaf‐entries
+            int childPage = c.getChildPage();
+            Node child = indexFile.readNode(childPage);
+            // Ενημέρωση parentPage
+            child.setParentPage(curr.getPageId());
+            indexFile.writeNode(child.getPageId(), child);
+
+            if (child.getLevel() >= curr.getLevel()) {
+                double inc = c.getMBR().enlargement(e.getMBR());
+                double area = c.getMBR().area();
+                int childSize = child.getEntries().size();
+                if (inc < bestInc
+                        || (inc == bestInc && area < bestArea)
+                        || (inc == bestInc && area == bestArea
+                        && childSize < sizeOfChild(best == null ? c.getChildPage() : best.getChildPage()))) {
+                    best = c;
+                    bestInc = inc;
+                    bestArea = area;
+                }
             }
         }
-        return chooseLeaf(best.getChild(), e);
+
+        // 2) Fallback: όποιον internal child βρούμε
+        if (best == null) {
+            bestInc = Double.POSITIVE_INFINITY;
+            bestArea = Double.POSITIVE_INFINITY;
+            for (Entry c : curr.getEntries()) {
+                if (!c.isInternalEntry()) continue;
+                int childPage = c.getChildPage();
+                Node child = indexFile.readNode(childPage);
+                // Ενημέρωση parentPage
+                child.setParentPage(curr.getPageId());
+                indexFile.writeNode(child.getPageId(), child);
+
+                double inc = c.getMBR().enlargement(e.getMBR());
+                double area = c.getMBR().area();
+                int childSize = child.getEntries().size();
+                if (inc < bestInc
+                        || (inc == bestInc && area < bestArea)
+                        || (inc == bestInc && area == bestArea
+                        && childSize < sizeOfChild(best == null ? c.getChildPage() : best.getChildPage()))) {
+                    best = c;
+                    bestInc = inc;
+                    bestArea = area;
+                }
+            }
+        }
+
+        if (best == null) {
+            throw new IllegalStateException(
+                    "chooseLeaf: Δεν βρέθηκε internal entry σε κόμβο επιπέδου " + curr.getLevel());
+        }
+        Node chosenChild = indexFile.readNode(best.getChildPage());
+        return chooseLeaf(chosenChild, e);
     }
 
-    /**
-     * Όταν κόμβος Ν έχει πάνω από M entries:
-     *  - Αν είναι root → split
-     *  - Αν είναι εσωτερικός (level > 0) και δεν έχει ξανα‐επαναεισαχθεί → reinsert
-     *  - Αλλιώς → split
-     */
-    private void handleOverflow(Node N) {
-        if (N == root) {
+    private int sizeOfChild(int childPage) throws IOException {
+        if (childPage < 0) return 0;
+        Node child = indexFile.readNode(childPage);
+        return (child == null ? 0 : child.getEntries().size());
+    }
+
+    private void handleOverflow(Node N) throws IOException {
+        if (N.getPageId() == root.getPageId()) {
             splitNode(N);
             return;
         }
@@ -98,27 +142,17 @@ public class RStarTree {
         }
     }
 
-    /**
-     * Για απλότητα, επιστρέφει πάντα false, ώστε να κάνουμε reinsert κάθε φορά
-     * για εσωτερικούς κόμβους. Αν θέλετε αυστηρό policy “μία φορά ανά εισαγωγή”,
-     * προσθέστε flag στο Node.
-     */
     private boolean hasBeenReinserted(Node N) {
+        // Επιστρέφει false ώστε κάθε εσωτερικός κόμβος να κάνει έστω μία φορά reinsert
         return false;
     }
 
     /**
-     * Forced reinsert:
-     *  1) Υπολογίζει centroid όλων των entries
-     *  2) Ταξινομεί κατά φθίνουσα απόσταση MBR‐κέντρου από centroid
-     *  3) Αφαιρεί τα p=30% farthest, επανυπολογίζει MBR του N
-     *  4) Επανεισάγει τα p entries **από τη ρίζα**, με το σωστό targetLevel
-     *     (για leaf‐entries targetLevel=0, για internal‐entries targetLevel=child.level).
+     * Πολιτική reinsert:
+     * Αφαιρούμε το 30% των πιο “απομακρυσμένων” entries και τα επανεισάγουμε.
      */
-    private void reinsert(Node N) {
+    private void reinsert(Node N) throws IOException {
         int p = (int) Math.floor(0.3 * M);
-
-        // Υπολογισμός centroid
         double[] centroid = new double[DIM];
         Arrays.fill(centroid, 0.0);
         for (Entry e : N.getEntries()) {
@@ -132,7 +166,6 @@ public class RStarTree {
             centroid[i] /= N.getEntries().size();
         }
 
-        // Ταξινόμηση κατά απόσταση κέντρου (farthest first)
         List<Entry> sorted = new ArrayList<>(N.getEntries());
         sorted.sort((a, b) -> {
             double da = 0, db = 0;
@@ -146,51 +179,106 @@ public class RStarTree {
             return Double.compare(db, da);
         });
 
-        // Διαλέγουμε τα πρώτο p (farthest)
         List<Entry> toReinsert = new ArrayList<>(sorted.subList(0, p));
         N.getEntries().removeAll(toReinsert);
         N.recomputeMBRUpward();
+        indexFile.writeNode(N.getPageId(), N);
 
-        // Επανεισαγωγή από root με το σωστό targetLevel
         for (Entry e : toReinsert) {
             if (e.isLeafEntry()) {
-                // Είναι leaf entry, targetLevel = 0
                 insertEntry(root, e, 0);
             } else {
-                // Είναι internal entry, targetLevel = child.level
-                insertEntry(root, e, e.getChild().getLevel());
+                Node child = indexFile.readNode(e.getChildPage());
+                insertEntry(root, e, child.getLevel());
             }
         }
     }
 
     /**
-     * Εισαγωγή ενός υπάρχοντος Entry E σε υποδέντρο με root R και επιθυμητό level = targetLevel.
-     * - Ψάχνει πρώτα για child με getLevel() ≥ targetLevel, αγνοώντας leaf‐entries (child==null).
-     * - Αν δεν βρεθεί κανένα, επιλέγει fallback child βάσει ελάχιστης enlargement, ανάμεσα σε
-     *   μη‐null child entries.
+     * bulkLoad: bottom‐up packing χωρίς πολλαπλά overflows.
+     * Φτιάχνει όλες τις leaf‐nodes, τις γράφει, έπειτα φτιάχνει επίπεδα πάνω.
      */
-    private void insertEntry(Node R, Entry E, int targetLevel) {
-        // Αν είμαστε ήδη στο σωστό level, απλώς προσθέτουμε
+    public void bulkLoad(List<Record> records) throws IOException {
+        records.sort(Comparator.comparingDouble(r -> r.getCoords()[0]));
+
+        // 1) Δημιουργία όλων των leaf entries
+        List<Entry> leafEntries = new ArrayList<>();
+        for (Record rec : records) {
+            RecordPointer rp = dataFile.insertRecord(rec);
+            MBR mbr = new MBR(rec.getCoords(), rec.getCoords());
+            leafEntries.add(new Entry(mbr, rp));
+        }
+
+        // 2) Πακετάρουμε σε leaf nodes (M εγγραφές ανά κόμβο)
+        List<Node> leaves = new ArrayList<>();
+        for (int i = 0; i < leafEntries.size(); i += M) {
+            int end = Math.min(i + M, leafEntries.size());
+            Node leaf = new Node(0, true);
+            for (int j = i; j < end; j++) {
+                leaf.addEntry(leafEntries.get(j));
+            }
+            int pageLeaf = indexFile.writeNode(-1, leaf);
+            leaf.setPageId(pageLeaf);
+            leaf.setParentPage(-1);
+            leaves.add(leaf);
+        }
+
+        // 3) Φτιάχνουμε τα επόμενα επίπεδα μέχρι να φτιάξουμε root
+        int level = 1;
+        List<Node> currentLevel = leaves;
+        while (currentLevel.size() > 1) {
+            List<Node> nextLevel = new ArrayList<>();
+            for (int i = 0; i < currentLevel.size(); i += M) {
+                int end = Math.min(i + M, currentLevel.size());
+                Node parent = new Node(level, false);
+                for (int j = i; j < end; j++) {
+                    Node child = currentLevel.get(j);
+                    parent.addEntry(new Entry(child.getMBR(), child.getPageId()));
+                }
+                int pageParent = indexFile.writeNode(-1, parent);
+                parent.setPageId(pageParent);
+                parent.setParentPage(-1);
+                nextLevel.add(parent);
+            }
+            currentLevel = nextLevel;
+            level++;
+        }
+        root = currentLevel.get(0);
+    }
+
+    /**
+     * Εισαγωγή ήδη έτοιμης Entry (για reinsert ή bulkLoad), σε δεδομένο επίπεδο.
+     * Εδώ επίσης ενημερώνουμε parentPage μόλις κατεβάζουμε παιδί.
+     */
+    private void insertEntry(Node R, Entry E, int targetLevel) throws IOException {
         if (R.getLevel() == targetLevel) {
             R.addEntry(E);
+            indexFile.writeNode(R.getPageId(), R);
             if (R.getEntries().size() > M) {
                 handleOverflow(R);
             }
             return;
         }
-
-        // 1) Προσπαθούμε να βρούμε child με level >= targetLevel (skip leaf‐entries)
         Entry best = null;
         double bestInc = Double.POSITIVE_INFINITY;
         double bestArea = Double.POSITIVE_INFINITY;
+
+        // 1) Προσπάθεια επιλογής internal children στο σωστό επίπεδο
         for (Entry c : R.getEntries()) {
-            if (c.getChild() != null && c.getChild().getLevel() >= targetLevel) {
+            if (!c.isInternalEntry()) continue;
+            Node child = indexFile.readNode(c.getChildPage());
+            // Ενημέρωση parentPage
+            child.setParentPage(R.getPageId());
+            indexFile.writeNode(child.getPageId(), child);
+
+            if (child.getLevel() >= targetLevel) {
                 double inc = c.getMBR().enlargement(E.getMBR());
                 double area = c.getMBR().area();
+                int childSize = child.getEntries().size();
                 if (inc < bestInc
                         || (inc == bestInc && area < bestArea)
                         || (inc == bestInc && area == bestArea
-                        && c.getChild().getEntries().size() < best.getChild().getEntries().size())) {
+                        && childSize < sizeOfChild(best == null ? c.getChildPage() : best.getChildPage()))) {
                     best = c;
                     bestInc = inc;
                     bestArea = area;
@@ -198,49 +286,48 @@ public class RStarTree {
             }
         }
 
-        // 2) Fallback: Αν δεν βρέθηκε κανένας κατάλληλος child, επιλέγουμε ελάχιστο enlargement
-        //    ανάμεσα μόνο σε entries με non-null child
+        // 2) Fallback: όποιον internal child βρούμε
         if (best == null) {
             bestInc = Double.POSITIVE_INFINITY;
             bestArea = Double.POSITIVE_INFINITY;
             for (Entry c : R.getEntries()) {
-                if (c.getChild() != null) {
-                    double inc = c.getMBR().enlargement(E.getMBR());
-                    double area = c.getMBR().area();
-                    if (inc < bestInc
-                            || (inc == bestInc && area < bestArea)
-                            || (inc == bestInc && area == bestArea
-                            && c.getChild().getEntries().size() < best.getChild().getEntries().size())) {
-                        best = c;
-                        bestInc = inc;
-                        bestArea = area;
-                    }
+                if (!c.isInternalEntry()) continue;
+                Node child = indexFile.readNode(c.getChildPage());
+                // Ενημέρωση parentPage
+                child.setParentPage(R.getPageId());
+                indexFile.writeNode(child.getPageId(), child);
+
+                double inc = c.getMBR().enlargement(E.getMBR());
+                double area = c.getMBR().area();
+                int childSize = child.getEntries().size();
+                if (inc < bestInc
+                        || (inc == bestInc && area < bestArea)
+                        || (inc == bestInc && area == bestArea
+                        && childSize < sizeOfChild(best == null ? c.getChildPage() : best.getChildPage()))) {
+                    best = c;
+                    bestInc = inc;
+                    bestArea = area;
                 }
             }
         }
 
-        // Βεβαιωνόμαστε ότι δεν είναι null: πρέπει να υπάρχει τουλάχιστον ένα internal entry.
         if (best == null) {
-            throw new IllegalStateException("insertEntry: Δεν βρέθηκε κατάλληλο internal entry "
-                    + "σε κόμβο επιπέδου " + R.getLevel()
-                    + " (targetLevel=" + targetLevel + ").");
+            throw new IllegalStateException(
+                    "insertEntry: Δεν βρέθηκε internal entry σε κόμβο επιπέδου " + R.getLevel());
         }
-
-        // 3) Αναδρομή στον επιλεγμένο child
-        insertEntry(best.getChild(), E, targetLevel);
+        Node bestChild = indexFile.readNode(best.getChildPage());
+        insertEntry(bestChild, E, targetLevel);
     }
 
     /**
-     * Κάνει split στον κόμβο N χρησιμοποιώντας το R*-tree heuristic:
-     *   Για κάθε διάσταση d, ταξινομεί κατά min[d] και κατά max[d], δοκιμάζει k=m..(size-m),
-     *   υπολογίζει margin1+margin2, επιλέγει το dimension/side με ελάχιστο άθροισμα margins.
+     * Διασπά κόμβο N σε N1, N2 και προσαρμόζει τον γονέα ή, αν N == root, φτιάχνει νέο root.
+     * Σημείωση: εδώ δεν υπάρχει cache, οπότε κάθε read/write πάει απευθείας στο indexFile.
      */
-    private void splitNode(Node N) {
+    private void splitNode(Node N) throws IOException {
         SplitResult sr = chooseSplit(N);
 
         Node N1 = new Node(N.getLevel(), N.isLeaf());
         Node N2 = new Node(N.getLevel(), N.isLeaf());
-
         for (Entry e : sr.getGroup1()) {
             N1.addEntry(e);
         }
@@ -248,40 +335,76 @@ public class RStarTree {
             N2.addEntry(e);
         }
 
-        if (N == root) {
-            Node newRoot = new Node(N.getLevel() + 1, false);
-            newRoot.addEntry(new Entry(N1.getMBR(), N1));
-            newRoot.addEntry(new Entry(N2.getMBR(), N2));
-            N1.setParent(newRoot);
-            N2.setParent(newRoot);
-            newRoot.recomputeMBRUpward();
-            root = newRoot;
-        } else {
-            Node parent = N.getParent();
-            Entry toRemove = null;
-            for (Entry e : parent.getEntries()) {
-                if (e.getChild() == N) {
-                    toRemove = e;
-                    break;
-                }
-            }
-            parent.removeEntry(toRemove);
-            parent.addEntry(new Entry(N1.getMBR(), N1));
-            parent.addEntry(new Entry(N2.getMBR(), N2));
-            N1.setParent(parent);
-            N2.setParent(parent);
+        // Περίπτωση: N είναι root
+        if (N.getPageId() == root.getPageId()) {
+            int pageN1 = indexFile.writeNode(-1, N1);
+            N1.setPageId(pageN1);
+            N1.setParentPage(-1);
 
-            if (parent.getEntries().size() > M) {
-                handleOverflow(parent);
+            int pageN2 = indexFile.writeNode(-1, N2);
+            N2.setPageId(pageN2);
+            N2.setParentPage(-1);
+
+            Node newRoot = new Node(N.getLevel() + 1, false);
+            newRoot.addEntry(new Entry(N1.getMBR(), pageN1));
+            newRoot.addEntry(new Entry(N2.getMBR(), pageN2));
+            int newRootPage = indexFile.writeNode(-1, newRoot);
+            newRoot.setPageId(newRootPage);
+            newRoot.setParentPage(-1);
+            root = newRoot;
+
+            // Ενημέρωση parentPage για N1, N2
+            N1.setParentPage(newRootPage);
+            indexFile.writeNode(N1.getPageId(), N1);
+
+            N2.setParentPage(newRootPage);
+            indexFile.writeNode(N2.getPageId(), N2);
+            return;
+        }
+
+        // Περίπτωση: N δεν είναι root
+        int parentPage = N.getParentPage();
+        if (parentPage < 0) {
+            throw new IllegalStateException(
+                    "splitNode: Καλείσαι να σπάσεις κόμβο με parentPage = -1, αλλά δεν είσαι root.");
+        }
+        Node parent = indexFile.readNode(parentPage);
+
+        // 1) Αφαιρούμε το entry του N από τον parent
+        Entry toRemove = null;
+        for (Entry e : parent.getEntries()) {
+            if (e.isInternalEntry() && e.getChildPage() == N.getPageId()) {
+                toRemove = e;
+                break;
             }
+        }
+        if (toRemove != null) {
+            parent.getEntries().remove(toRemove);
+        }
+        indexFile.writeNode(parent.getPageId(), parent);
+
+        // 2) Γράφουμε N1, N2 με parentPage = parentPage
+        int pageN1 = indexFile.writeNode(-1, N1);
+        N1.setPageId(pageN1);
+        N1.setParentPage(parentPage);
+
+        int pageN2 = indexFile.writeNode(-1, N2);
+        N2.setPageId(pageN2);
+        N2.setParentPage(parentPage);
+
+        // 3) Προσθέτουμε νέα entries στον parent
+        parent.addEntry(new Entry(N1.getMBR(), pageN1));
+        parent.addEntry(new Entry(N2.getMBR(), pageN2));
+        indexFile.writeNode(parent.getPageId(), parent);
+
+        // 4) Αν ο parent ξεχειλίζει, κάνουμε splitRecursively
+        if (parent.getEntries().size() > M) {
+            splitNode(parent);
         }
     }
 
     /**
-     * Εφαρμογή R*-tree split heuristic:
-     *   Για κάθε διάσταση d, φτιάχνουμε sortByMin και sortByMax (οριζόντια και κάθετα),
-     *   μετά δοκιμάζουμε k=m..(size-m) για να βρούμε το split που ελαχιστοποιεί το άθροισμα των margins.
-     *   Χρησιμοποιούμε final int dimIndex = d ώστε να μην έχουμε πρόβλημα με lambda.
+     * Επιλογή split (δύο ομάδες entries) βάσει αθροίσματος των margins.
      */
     private SplitResult chooseSplit(Node N) {
         int dim = DIM;
@@ -291,9 +414,11 @@ public class RStarTree {
         for (int d = 0; d < dim; d++) {
             final int dimIndex = d;
 
+            // Ταξινόμηση κατά min[dimIndex]
             List<Entry> sortByMin = new ArrayList<>(N.getEntries());
             sortByMin.sort(Comparator.comparingDouble(e -> e.getMBR().getMin()[dimIndex]));
 
+            // Ταξινόμηση κατά max[dimIndex]
             List<Entry> sortByMax = new ArrayList<>(N.getEntries());
             sortByMax.sort(Comparator.comparingDouble(e -> e.getMBR().getMax()[dimIndex]));
 
@@ -341,142 +466,16 @@ public class RStarTree {
         return bestSplit;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  ΔΙΑΓΡΑΦΗ (Deletion) & CONDENSE-TREE
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Διαγράφει το record που δείχνει το RecordPointer rp με δεδομένο ότι το σημείο είναι coords.
-     * Επιστρέφει true αν βρέθηκε+διαγράφηκε.
-     */
-    public boolean delete(RecordPointer rp, double[] coords) throws IOException {
-        MBR searchMBR = new MBR(coords, coords);
-        Node leaf = findLeaf(root, rp, searchMBR);
-        if (leaf == null) return false;
-
-        Entry toRemove = null;
-        for (Entry e : leaf.getEntries()) {
-            if (e.isLeafEntry()) {
-                RecordPointer p2 = e.getPointer();
-                if (p2.getBlockId() == rp.getBlockId() && p2.getSlotId() == rp.getSlotId()) {
-                    toRemove = e;
-                    break;
-                }
-            }
-        }
-        if (toRemove == null) return false;
-
-        leaf.removeEntry(toRemove);
-        condenseTree(leaf);
-
-        if (!root.isLeaf() && root.getEntries().size() == 1) {
-            Entry sole = root.getEntries().get(0);
-            root = sole.getChild();
-            root.setParent(null);
-        }
-
-        dataFile.deleteRecord(rp);
-        return true;
-    }
-
-    /**
-     * Βρίσκει το φύλλο που περιέχει ακριβώς το RecordPointer rp (με MBR=point coords).
-     */
-    private Node findLeaf(Node N, RecordPointer rp, MBR searchMBR) {
-        if (!N.getMBR().overlaps(searchMBR)) {
-            return null;
-        }
-        if (N.isLeaf()) {
-            for (Entry e : N.getEntries()) {
-                if (e.isLeafEntry()) {
-                    RecordPointer p2 = e.getPointer();
-                    if (p2.getBlockId() == rp.getBlockId() && p2.getSlotId() == rp.getSlotId()) {
-                        return N;
-                    }
-                }
-            }
-            return null;
-        } else {
-            for (Entry c : N.getEntries()) {
-                if (c.getMBR().overlaps(searchMBR)) {
-                    Node res = findLeaf(c.getChild(), rp, searchMBR);
-                    if (res != null) return res;
-                }
-            }
-            return null;
-        }
-    }
-
-    /**
-     * Μετά τη διαγραφή σε φύλλο, «συμπιέζουμε» το δέντρο:
-     *  - Αν κόμβος έχει < m entries, αφαιρείται και μαζεύουμε τα entries του.
-     *  - Έπειτα επανεισάγουμε τα orphaned entries.
-     */
-    private void condenseTree(Node N) throws IOException {
-        List<Node> toReinsert = new ArrayList<>();
-        Node n = N;
-        while (n != root) {
-            if (n.underflows(m)) {
-                Node parent = n.getParent();
-                Entry removeE = null;
-                for (Entry e : parent.getEntries()) {
-                    if (e.getChild() == n) {
-                        removeE = e;
-                        break;
-                    }
-                }
-                parent.removeEntry(removeE);
-                collectSubtree(n, toReinsert);
-                n = parent;
-            } else {
-                n.recomputeMBRUpward();
-                n = n.getParent();
-            }
-        }
-        for (Node orphan : toReinsert) {
-            if (orphan.isLeaf()) {
-                for (Entry e : orphan.getEntries()) {
-                    RecordPointer rp = e.getPointer();
-                    Record rec = dataFile.readRecord(rp);
-                    insert(rec);
-                }
-            } else {
-                for (Entry e : orphan.getEntries()) {
-                    insertEntry(root, e, orphan.getLevel());
-                }
-            }
-        }
-    }
-
-    /**
-     * Συλλέγει αναδρομικά όλα τα φύλλα ενός subtree και τα προσθέτει στη λίστα out.
-     */
-    private void collectSubtree(Node N, List<Node> out) {
-        if (N.isLeaf()) {
-            out.add(N);
-        } else {
-            for (Entry e : N.getEntries()) {
-                collectSubtree(e.getChild(), out);
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  RANGE QUERY
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Επιστρέφει όλα τα RecordPointer που βρίσκονται εντός του υπερορθογωνίου [minCoords, maxCoords].
-     */
-    public List<RecordPointer> rangeQuery(double[] minCoords, double[] maxCoords) {
-        MBR queryRect = new MBR(minCoords, maxCoords);
+    /** RangeQuery (αναδρομική αναζήτηση). */
+    public List<RecordPointer> rangeQuery(double[] minCoords, double[] maxCoords) throws IOException {
+        MBR queryMBR = new MBR(minCoords, maxCoords);
         List<RecordPointer> results = new ArrayList<>();
-        rangeSearch(root, queryRect, results);
+        rangeSearch(root, queryMBR, results);
         return results;
     }
 
-    private void rangeSearch(Node N, MBR query, List<RecordPointer> out) {
-        if (!N.getMBR().overlaps(query)) return;
+    private void rangeSearch(Node N, MBR query, List<RecordPointer> out) throws IOException {
+        if (N.getMBR() == null || !N.getMBR().overlaps(query)) return;
         if (N.isLeaf()) {
             for (Entry e : N.getEntries()) {
                 if (e.getMBR().isContainedIn(query)) {
@@ -485,20 +484,19 @@ public class RStarTree {
             }
         } else {
             for (Entry c : N.getEntries()) {
+                if (!c.isInternalEntry()) continue;
                 if (c.getMBR().overlaps(query)) {
-                    rangeSearch(c.getChild(), query, out);
+                    Node child = indexFile.readNode(c.getChildPage());
+                    // Ενημέρωση parentPage (ασφαλής ακόμη κι αν το child έχει ήδη σωστό parent)
+                    child.setParentPage(N.getPageId());
+                    indexFile.writeNode(child.getPageId(), child);
+                    rangeSearch(child, query, out);
                 }
             }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  k-NN Query (Best-First)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Επιστρέφει έως k εγγραφές πλησιέστερες στο queryPt (Euclidean).
-     */
+    /** Best‐first k-NN query. */
     public List<RecordPointer> kNNQuery(double[] queryPt, int k) throws IOException {
         PriorityQueue<NNEntry> pq = new PriorityQueue<>();
         pq.add(new NNEntry(root, root.getMBR().minDist(queryPt)));
@@ -515,8 +513,12 @@ public class RStarTree {
                     }
                 } else {
                     for (Entry e : n.getEntries()) {
+                        if (!e.isInternalEntry()) continue;
                         double d = e.getMBR().minDist(queryPt);
-                        pq.offer(new NNEntry(e.getChild(), d));
+                        Node child = indexFile.readNode(e.getChildPage());
+                        child.setParentPage(n.getPageId());
+                        indexFile.writeNode(child.getPageId(), child);
+                        pq.offer(new NNEntry(child, d));
                     }
                 }
             } else {
@@ -526,13 +528,7 @@ public class RStarTree {
         return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Skyline Query (Brute-Force)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Επιστρέφει τις εγγραφές που είναι στο skyline (κανένα άλλο σημείο δεν τις κυριαρχεί).
-     */
+    /** O(n^2) Skyline. */
     public List<RecordPointer> skylineQuery() throws IOException {
         List<Entry> allEntries = new ArrayList<>();
         collectAllLeaves(root, allEntries);
@@ -556,12 +552,16 @@ public class RStarTree {
         return skyline;
     }
 
-    private void collectAllLeaves(Node N, List<Entry> out) {
+    private void collectAllLeaves(Node N, List<Entry> out) throws IOException {
         if (N.isLeaf()) {
             out.addAll(N.getEntries());
         } else {
             for (Entry c : N.getEntries()) {
-                collectAllLeaves(c.getChild(), out);
+                if (!c.isInternalEntry()) continue;
+                Node child = indexFile.readNode(c.getChildPage());
+                child.setParentPage(N.getPageId());
+                indexFile.writeNode(child.getPageId(), child);
+                collectAllLeaves(child, out);
             }
         }
     }
@@ -573,58 +573,5 @@ public class RStarTree {
             if (q[i] < p[i]) strictlyBetter = true;
         }
         return strictlyBetter;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  BULK-LOAD (Bottom-Up STR-like)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Bottom‐up bulk‐load (STR‐like): sort‐by‐first‐coordinate, pack in leaves,
-     * έπειτα οικοδόμηση ανώτερων επιπέδων.
-     */
-    public void bulkLoad(List<Record> records) throws IOException {
-        records.sort(Comparator.comparingDouble(r -> r.getCoords()[0]));
-
-        List<Entry> leafEntries = new ArrayList<>();
-        for (Record rec : records) {
-            RecordPointer rp = dataFile.insertRecord(rec);
-            MBR mbr = new MBR(rec.getCoords(), rec.getCoords());
-            leafEntries.add(new Entry(mbr, rp));
-        }
-
-        List<Node> leaves = new ArrayList<>();
-        for (int i = 0; i < leafEntries.size(); i += M) {
-            int end = Math.min(i + M, leafEntries.size());
-            Node leaf = new Node(0, true);
-            for (int j = i; j < end; j++) {
-                leaf.addEntry(leafEntries.get(j));
-            }
-            leaves.add(leaf);
-        }
-
-        int level = 1;
-        List<Node> currentLevel = leaves;
-        while (currentLevel.size() > 1) {
-            List<Node> nextLevel = new ArrayList<>();
-            for (int i = 0; i < currentLevel.size(); i += M) {
-                int end = Math.min(i + M, currentLevel.size());
-                Node parent = new Node(level, false);
-                for (int j = i; j < end; j++) {
-                    Node child = currentLevel.get(j);
-                    parent.addEntry(new Entry(child.getMBR(), child));
-                }
-                nextLevel.add(parent);
-            }
-            currentLevel = nextLevel;
-            level++;
-        }
-        root = currentLevel.get(0);
-        root.setParent(null);
-    }
-
-    /** Επιστρέφει τον τρέχοντα root. */
-    public Node getRoot() {
-        return root;
     }
 }

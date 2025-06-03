@@ -1,53 +1,47 @@
 // Entry.java
 //
-// Μια εγγραφή (entry) σε κόμβο του R*-tree. Κάθε Entry έχει ένα MBR και είτε
-// δείχνει σε ένα RecordPointer (leaf), είτε σε ένα παιδικό Node (internal).
+// Αναπαριστά μία καταχώρηση στον Node: είτε leaf-entry (pointer σε Record) είτε internal-entry (childPage).
 
 public class Entry {
-    private final MBR mbr;
-    private final RecordPointer ptr;  // αν != null, τότε leaf-entry
-    private final Node child;         // αν != null, τότε internal-entry
+    private MBR mbr;
+    private RecordPointer pointer; // leaf-entry (αν non-null)
+    private int childPage;         // internal-entry (αν >=0)
 
-    /** Κατασκευαστής για leaf-entry (σημείο). */
-    public Entry(MBR mbr, RecordPointer ptr) {
-        this.mbr = mbr.clone();
-        this.ptr = ptr;
-        this.child = null;
+    // Leaf constructor
+    public Entry(MBR mbr, RecordPointer rp) {
+        this.mbr = mbr;
+        this.pointer = rp;
+        this.childPage = -1;
     }
 
-    /** Κατασκευαστής για internal-entry (υποδέντρο). */
-    public Entry(MBR mbr, Node child) {
-        this.mbr = mbr.clone();
-        this.child = child;
-        this.ptr = null;
-    }
-
-    public MBR getMBR() {
-        return mbr.clone();
-    }
-
-    public RecordPointer getPointer() {
-        return ptr;
-    }
-
-    public Node getChild() {
-        return child;
+    // Internal constructor
+    public Entry(MBR mbr, int childPage) {
+        this.mbr = mbr;
+        this.childPage = childPage;
+        this.pointer = null;
     }
 
     public boolean isLeafEntry() {
-        return ptr != null;
+        return pointer != null;
     }
 
     public boolean isInternalEntry() {
-        return child != null;
+        return childPage >= 0;
     }
 
-    @Override
-    public String toString() {
-        if (isLeafEntry()) {
-            return "Entry{MBR=" + mbr + ", ptr=" + ptr + "}";
-        } else {
-            return "Entry{MBR=" + mbr + ", childNodeLevel=" + child.getLevel() + "}";
-        }
+    public RecordPointer getPointer() {
+        return pointer;
+    }
+
+    public int getChildPage() {
+        return childPage;
+    }
+
+    public MBR getMBR() {
+        return mbr;
+    }
+
+    public void setMBR(MBR m) {
+        this.mbr = m;
     }
 }

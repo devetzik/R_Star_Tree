@@ -1,10 +1,10 @@
 // RecordPointer.java
 //
-// Απλός wrapper που κρατάει τη θέση μιας εγγραφής μέσα σε έναν DataFile block.
-// Χρησιμοποιείται μέσα στον R*-tree για να γνωρίζουμε πού βρίσκεται η εγγραφή στο δίσκο.
+// Δείκτης σε εγγραφή μέσα στο DataFile: blockId και slotId.
+
 public class RecordPointer {
-    private final int blockId;
-    private final int slotId;
+    private int blockId;
+    private int slotId;
 
     public RecordPointer(int blockId, int slotId) {
         this.blockId = blockId;
@@ -17,10 +17,5 @@ public class RecordPointer {
 
     public int getSlotId() {
         return slotId;
-    }
-
-    @Override
-    public String toString() {
-        return "RecordPointer{blockId=" + blockId + ", slotId=" + slotId + '}';
     }
 }

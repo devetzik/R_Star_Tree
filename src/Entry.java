@@ -1,7 +1,6 @@
 // Entry.java
 //
 // Αναπαριστά μία καταχώρηση στον Node: είτε leaf-entry (pointer σε Record) είτε internal-entry (childPage).
-
 public class Entry {
     private MBR mbr;
     private RecordPointer pointer; // leaf-entry (αν non-null)

@@ -2,8 +2,6 @@
 //
 // Χρησιμοποιείται για best-first k-NN query: είτε Node με dist, είτε Entry με dist.
 
-import java.util.Comparator;
-
 public class NNEntry implements Comparable<NNEntry> {
     private Node node;      // αν πρόκειται για κόμβο
     private Entry entry;    // αν πρόκειται για leaf entry

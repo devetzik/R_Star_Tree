@@ -1,5 +1,5 @@
 // SplitResult.java
-//
+
 // Απλή βοηθητική κλάση που κρατάει δύο λίστες Entry (groups) μετά από split.
 import java.util.List;
 

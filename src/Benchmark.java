@@ -7,6 +7,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
 
+
 public class Benchmark {
     private static final String OSM_FILE               = "map.osm";
     private static final String DATAFILE_NAME          = "map.dbf";

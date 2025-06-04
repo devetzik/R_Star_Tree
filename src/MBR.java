@@ -1,7 +1,6 @@
 // MBR.java
 //
 // Minimum Bounding Rectangle: κρατάει πίνακες min[] και max[] διαστάσεων DIM.
-
 import java.util.Arrays;
 
 public class MBR implements Cloneable {

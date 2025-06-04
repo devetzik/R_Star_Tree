@@ -6,7 +6,6 @@
 //    και τυπώνει το id, το name και τις συντεταγμένες.
 
 // minlat="40.5979960" minlon="22.9641400" maxlat="40.6029480" maxlon="22.9759960"
-
 import java.io.IOException;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;

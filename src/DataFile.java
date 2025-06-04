@@ -2,7 +2,6 @@
 //
 // Υλοποίηση DataFile με block size 32 KB (32768 bytes),
 // append-only insert logic, και μεθόδους readRecord, insertRecord, κ.λπ.
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;

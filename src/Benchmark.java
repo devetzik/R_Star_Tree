@@ -15,7 +15,7 @@ public class Benchmark {
     private static final int    K_NEIGHBORS            = 5;
     private static final int    NUM_RANGE_QUERIES      = 10;
     private static final int    NUM_KNN_QUERIES        = 10;
-    private static final int    NUM_POINTS_FOR_QUERIES = 100;
+    private static final int    NUM_POINTS_FOR_QUERIES = 10;
 
     public static void main(String[] args) {
         try {

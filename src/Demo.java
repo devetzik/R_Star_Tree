@@ -1,18 +1,11 @@
-// Demo.java
-//
-// Παράδειγμα χρήσης του RStarTree με OSMParser, τυπώνοντας πλήρη Record (id, name, coords)
-// αντί για απλούς RecordPointer.
-//
 //  • Δημιουργεί DataFile, IndexFile και RStarTree.
 //  • Καλεί τον OSMParser ώστε να διαβάσει το map.osm και να εισάγει απευθείας
 //    τα Record στο DataFile και στο R*-tree (μέσω insertPointer).
 //  • Εκτελεί ένα παράδειγμα ερωτήματος περιοχής, k-NN και skyline.
 //  • Για κάθε RecordPointer που επιστρέφεται, διαβάζει το Record από το DataFile
 //    και τυπώνει το id, το name και τις συντεταγμένες.
-//
-// Προϋποθέτει τις κλάσεις:
-//   • OSMParser (constructor: OSMParser(RStarTree, DataFile) κι έχει μέθοδο parse(String))
-//   • RecordPointer, Record, DataFile, IndexFile, RStarTree, Entry, MBR.
+
+// minlat="40.5979960" minlon="22.9641400" maxlat="40.6029480" maxlon="22.9759960"
 
 import java.io.IOException;
 import javax.xml.parsers.ParserConfigurationException;
@@ -24,6 +17,10 @@ public class Demo {
     private static final String DATAFILE_NAME   = "map.dbf";
     private static final String INDEXFILE_NAME  = "index.idx";
     private static final int    DIMENSIONS      = 2;
+    private static final double[] MIN_COORDS = { 40.5979960, 22.9641400 };  // Range Query
+    private static final double[] MAX_COORDS = { 40.6, 22.97 };  // Range Query
+    private static final double[] QUERY_PT = { 40.5979, 22.9645 };  // k-NN
+
 
     public static void main(String[] args) {
         DataFile df = null;
@@ -41,10 +38,8 @@ public class Demo {
             System.out.println("   Ολοκληρώθηκε ingestion από OSMParser.");
 
             // 3) Παράδειγμα Range Query:
-            double[] minCoords = { 37.98, 23.73 };
-            double[] maxCoords = { 37.99, 23.74 };
             System.out.println("\n3) Παράδειγμα Range Query:");
-            List<RecordPointer> rangeRes = tree.rangeQuery(minCoords, maxCoords);
+            List<RecordPointer> rangeRes = tree.rangeQuery(MIN_COORDS, MAX_COORDS);
             System.out.printf("   Βρέθηκαν %d σημεία εντός ορθογωνίου.%n", rangeRes.size());
             for (int i = 0; i < Math.min(rangeRes.size(), 5); i++) {
                 RecordPointer rp = rangeRes.get(i);
@@ -58,11 +53,10 @@ public class Demo {
             }
 
             // 4) Παράδειγμα k-NN Query:
-            double[] queryPt = { 37.975, 23.735 };
             int k = 5;
             System.out.println("\n4) Παράδειγμα k-NN Query:");
-            List<RecordPointer> knnRes = tree.kNNQuery(queryPt, k);
-            System.out.printf("   %d πλησιέστερα σημεία στο (%.3f, %.3f):%n", k, queryPt[0], queryPt[1]);
+            List<RecordPointer> knnRes = tree.kNNQuery(QUERY_PT, k);
+            System.out.printf("   %d πλησιέστερα σημεία στο (%.6f, %.6f):%n", k, QUERY_PT[0], QUERY_PT[1]);
             for (int i = 0; i < knnRes.size(); i++) {
                 RecordPointer rp = knnRes.get(i);
                 Record rec = df.readRecord(rp);

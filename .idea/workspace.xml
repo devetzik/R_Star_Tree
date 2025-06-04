@@ -4,13 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="remove cache. works -skyline@benchmark">
+    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="CHECKPOINT. ALL WORK">
+      <change afterPath="$PROJECT_DIR$/.gitattributes" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/map.dbf" beforeDir="false" afterPath="$PROJECT_DIR$/map.dbf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/map.osm" beforeDir="false" afterPath="$PROJECT_DIR$/map.osm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Benchmark.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Benchmark.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Demo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Demo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RStarTree.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RStarTree.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,23 +23,41 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "devetzik"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/devetzik/R_Star_Tree.git",
+    "accountId": "7c2e578e-7d0e-4e3d-9c35-2d7ea4fbab6b"
+  }
+}]]></component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
   <component name="ProjectId" id="2xxxk7XyaBamUXWWF1qaw4XmG5s" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.Benchmark.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Application.Benchmark">
     <configuration name="Benchmark" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="Benchmark" />
@@ -103,7 +117,21 @@
       <option name="project" value="LOCAL" />
       <updated>1748970914738</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="CHECKPOINT. ALL WORK">
+      <created>1749034917159</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1749034917159</updated>
+    </task>
+    <task id="LOCAL-00006" summary="CHECKPOINT. ALL WORK">
+      <created>1749034943101</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1749034943101</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -139,6 +167,7 @@
     <MESSAGE value="add indexfile. no cache for &quot;one by one insert&quot;" />
     <MESSAGE value="LRU Cache" />
     <MESSAGE value="remove cache. works -skyline@benchmark" />
-    <option name="LAST_COMMIT_MESSAGE" value="remove cache. works -skyline@benchmark" />
+    <MESSAGE value="CHECKPOINT. ALL WORK" />
+    <option name="LAST_COMMIT_MESSAGE" value="CHECKPOINT. ALL WORK" />
   </component>
 </project>

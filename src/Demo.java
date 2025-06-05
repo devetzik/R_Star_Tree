@@ -32,7 +32,7 @@ public class Demo {
 
             // 2) Χρήση OSMParser για απευθείας εισαγωγή κόμβων (nodes) στο DataFile και στο R*-tree.
             System.out.println("\n2) Ανάγνωση map.osm και εισαγωγή στο R*-tree...");
-            OSMParser parser = new OSMParser(tree, df);
+            OSMParser parser = new OSMParser(tree,df);
             parser.parse(OSM_FILENAME);
             System.out.println("   Ολοκληρώθηκε ingestion από OSMParser.");
 

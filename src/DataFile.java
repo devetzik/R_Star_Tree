@@ -1,7 +1,8 @@
 // DataFile.java
 //
-// Υλοποίηση DataFile με block size 32 KB (32768 bytes),
-// append-only insert logic, και μεθόδους readRecord, insertRecord, κ.λπ.
+// DataFile με block-size 32 KB, όπου το block 0 χρησιμοποιείται μόνον για metadata.
+// Τα δεδομένα (records) ξεκινούν από το block 1 και μετά.
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -11,20 +12,22 @@ import java.nio.charset.StandardCharsets;
 
 public class DataFile {
     public static final int BLOCK_SIZE = 32 * 1024; // 32 KB ανά block
-    private final int dimension;
-    private final int slotsPerBlock;
-    private final int recordSize;
+
+    private final int dimension;        // διάσταση των συντεταγμένων (π.χ. 2)
+    private final int recordSize;       // 8 (id) + 256 (name) + 8×dim (coords)
+    private final int slotsPerBlock;    // (BLOCK_SIZE - 4 bytes header) / recordSize
     private final FileChannel channel;
     private final String filename;
 
     // Για append-only εισαγωγή
-    private int currentBlockId;
-    private int nextSlot;
-    private int liveCount;
+    private int currentBlockId; // το τρέχον data-block στο οποίο γράφουμε (ξεκινάει από 1)
+    private int nextSlot;       // θέση (slot index) μέσα στο currentBlockId (0..slotsPerBlock-1)
+    private int totalRecords;   // συνολικό πλήθος εγγραφών
+    private int totalBlocks;    // συνολικό πλήθος blocks (συμπεριλαμβανομένου του block 0)
 
     /**
      * Δημιουργεί (ή ανοίγει) το αρχείο δεδομένων.
-     * Αν δεν υπάρχει, το φτιάχνει και γράφει header=0 στο πρώτο block.
+     * Το block 0 κρατάει metadata, τα data blocks ξεκινούν από block 1.
      *
      * @param filename Το όνομα αρχείου (π.χ. "map.dbf").
      * @param dim      Η διάσταση (π.χ. 2).
@@ -33,170 +36,215 @@ public class DataFile {
     public DataFile(String filename, int dim) throws IOException {
         this.filename = filename;
         this.dimension = dim;
-        // Κάθε record: 8 bytes για id (long) + 256 bytes για όνομα + 8×dim bytes για coords
+        // Κάθε record: 8 bytes id + 256 bytes name + 8×dim bytes coords
         this.recordSize = 8 + 256 + 8 * dim;
-        // Κάθε block: 4 bytes header + slots
+        // Σε κάθε data-block, header = 4 bytes (liveCount), και μετά τα record slots
         this.slotsPerBlock = (BLOCK_SIZE - 4) / recordSize;
 
         File f = new File(filename);
         if (!f.exists()) {
-            // Δημιουργούμε νέο αρχείο: header=0 στο πρώτο block
+            // Δημιουργία νέου αρχείου, φτιάχνουμε το block 0 με metadata
             RandomAccessFile raf = new RandomAccessFile(f, "rw");
             raf.setLength(0);
             this.channel = raf.getChannel();
 
-            ByteBuffer header = ByteBuffer.allocate(4);
-            header.putInt(0).flip();
-            channel.write(header, 0L);
+            // Αρχικά: totalRecords = 0, totalBlocks = 1 (μόνο block 0 υπάρχει)
+            this.totalRecords = 0;
+            this.totalBlocks = 1;
 
-            this.currentBlockId = 0;
+            // Γράφουμε metadata στο block 0:
+            //   offset 0..3: totalRecords
+            //   offset 4..7: totalBlocks
+            ByteBuffer metaBuf = ByteBuffer.allocate(BLOCK_SIZE);
+            metaBuf.putInt(0); // totalRecords
+            metaBuf.putInt(1); // totalBlocks
+            metaBuf.flip();
+            channel.write(metaBuf, 0L);
+
+            // Το πρώτο data-block είναι το block 1
+            this.currentBlockId = 1;
             this.nextSlot = 0;
-            this.liveCount = 0;
         } else {
             // Άνοιγμα υπάρχοντος αρχείου
             RandomAccessFile raf = new RandomAccessFile(f, "rw");
             this.channel = raf.getChannel();
 
             long fileSize = channel.size();
-            if (fileSize == 0) {
-                // Κενό αρχείο: αντιμετώπιση ως νέο
-                this.currentBlockId = 0;
-                this.nextSlot = 0;
-                this.liveCount = 0;
-                ByteBuffer header = ByteBuffer.allocate(4);
-                header.putInt(0).flip();
-                channel.write(header, 0L);
-            } else {
-                int totalBlocks = (int) (fileSize / BLOCK_SIZE);
-                this.currentBlockId = totalBlocks - 1;
+            if (fileSize < BLOCK_SIZE) {
+                // Έστω ότι το αρχείο είναι μικρότερο από ένα block → ξεκινάμε από την αρχή
+                this.totalRecords = 0;
+                this.totalBlocks = 1;
+                ByteBuffer metaBuf = ByteBuffer.allocate(BLOCK_SIZE);
+                metaBuf.putInt(0);
+                metaBuf.putInt(1);
+                metaBuf.flip();
+                channel.write(metaBuf, 0L);
 
-                long offsetHeader = (long) currentBlockId * BLOCK_SIZE;
-                ByteBuffer buf = ByteBuffer.allocate(4);
-                channel.read(buf, offsetHeader);
-                buf.flip();
-                this.liveCount = buf.getInt();
-                this.nextSlot = liveCount;
-                if (nextSlot >= slotsPerBlock) {
-                    createNewBlock();
+                this.currentBlockId = 1;
+                this.nextSlot = 0;
+            } else {
+                // Διαβάζουμε metadata από block 0 (offset 0):
+                ByteBuffer headerBuf = ByteBuffer.allocate(8);
+                channel.read(headerBuf, 0L);
+                headerBuf.flip();
+                this.totalRecords = headerBuf.getInt();
+                this.totalBlocks = headerBuf.getInt();
+
+                // Τελευταίο data-block είναι το blockId = totalBlocks - 1
+                this.currentBlockId = totalBlocks - 1;
+                long lastBlockOffset = (long) currentBlockId * BLOCK_SIZE;
+
+                // Διαβάζουμε το liveCount (πόσα slots έχουν γραφεί) στο header του τελευταίου block
+                ByteBuffer liveBuf = ByteBuffer.allocate(4);
+                channel.read(liveBuf, lastBlockOffset);
+                liveBuf.flip();
+                int liveCountInLast = liveBuf.getInt();
+
+                if (liveCountInLast < slotsPerBlock) {
+                    // Υπάρχουν ακόμα ελεύθερα slots στο τελευταίο data-block
+                    this.nextSlot = liveCountInLast;
+                } else {
+                    // Το τελευταίο data-block είναι γεμάτο → δημιουργούμε νέο
+                    this.currentBlockId = totalBlocks; // νέο blockId
+                    this.totalBlocks++;                // αυξάνουμε τις συνολικές σελίδες
+                    this.nextSlot = 0;
+                    writeMetadata();                   // ενημέρωση block 0
                 }
             }
         }
     }
 
-    /** Επιστρέφει το όνομα αρχείου. */
-    public String getFileName() {
-        return filename;
-    }
-
-    /** Επιστρέφει τη διάσταση (π.χ. 2). */
-    public int getDimension() {
-        return dimension;
-    }
-
-    /** Επιστρέφει πόσα slots χωράει κάθε block. */
+    /** @return Πόσα slots (records) χωρούν σε κάθε data-block. */
     public int getSlotsPerBlock() {
         return slotsPerBlock;
     }
 
-    /** Επιστρέφει το μέγεθος κάθε εγγραφής (σε bytes). */
+    /** @return Μέγεθος κάθε εγγραφής (bytes). */
     public int getRecordSize() {
         return recordSize;
     }
 
-    /** Επιστρέφει το FileChannel, χρήσιμο για απευθείας disk-reads. */
+    /** @return Η διάσταση (π.χ. 2). */
+    public int getDimension() {
+        return dimension;
+    }
+
+    /** @return Το underlying FileChannel (για range/kNN/skyline). */
     public FileChannel getChannel() {
         return channel;
     }
 
-    /**
-     * Εισάγει το δοσμένο Record στο επόμενο διαθέσιμο slot (append-only).
-     * Επιστρέφει έναν RecordPointer(blockId, slotId).
-     *
-     * @param r Το Record που θέλουμε να γράψουμε.
-     * @return  RecordPointer δηλωτικό όπου καταχωρήθηκε.
-     * @throws IOException σε περίπτωση I/O σφάλματος.
-     */
-    public RecordPointer insertRecord(Record r) throws IOException {
-        if (nextSlot >= slotsPerBlock) {
-            createNewBlock();
-        }
-        long blockOffset = (long) currentBlockId * BLOCK_SIZE;
-        long slotOffset = blockOffset + 4L + (long) nextSlot * recordSize;
-
-        ByteBuffer buf = ByteBuffer.allocate(recordSize);
-        buf.putLong(r.getId());
-
-        byte[] nameBytes = new byte[256];
-        byte[] actualName = r.getName().getBytes(StandardCharsets.UTF_8);
-        int len = Math.min(actualName.length, 256);
-        System.arraycopy(actualName, 0, nameBytes, 0, len);
-        buf.put(nameBytes);
-
-        for (int i = 0; i < dimension; i++) {
-            buf.putDouble(r.getCoords()[i]);
-        }
-        buf.flip();
-        channel.write(buf, slotOffset);
-
-        liveCount++;
-        nextSlot++;
-
-        // Ενημερώνουμε header στη θέση blockOffset
-        ByteBuffer headerBuf = ByteBuffer.allocate(4);
-        headerBuf.putInt(liveCount).flip();
-        channel.write(headerBuf, blockOffset);
-
-        return new RecordPointer(currentBlockId, nextSlot - 1);
+    /** Ενημερώνει τα πεδία totalRecords, totalBlocks στο block 0. */
+    private void writeMetadata() throws IOException {
+        ByteBuffer metaBuf = ByteBuffer.allocate(BLOCK_SIZE);
+        metaBuf.putInt(totalRecords);
+        metaBuf.putInt(totalBlocks);
+        metaBuf.flip();
+        channel.write(metaBuf, 0L);
     }
 
     /**
-     * Διαβάζει από το δίσκο ένα record με βάση τον RecordPointer.
-     * Επιστρέφει ένα αντικείμενο Record με id, name, coords.
-     *
-     * @param rp O RecordPointer (blockId, slotId).
-     * @return   Record με τα πεδία id, name και coords.
-     * @throws IOException σε περίπτωση I/O σφάλματος.
+     * Εισαγωγή ενός νέου record στο αρχείο.
+     * Επιστρέφει RecordPointer (blockId ≥ 1, slotId).
+     */
+    public RecordPointer insertRecord(Record rec) throws IOException {
+        long blockOffset = (long) currentBlockId * BLOCK_SIZE;
+        // Αν το currentBlockId δεν υπάρχει ακόμη στο αρχείο, το δημιουργούμε
+        if (blockOffset + BLOCK_SIZE > channel.size()) {
+            // Νέο data-block: γράφουμε header live=0 στο ξεκίνημά του
+            ByteBuffer liveBuf = ByteBuffer.allocate(4);
+            liveBuf.putInt(0).flip();
+            channel.write(liveBuf, blockOffset);
+        }
+
+        // Θέση του current record: offset = blockOffset + 4 (bytes header) + slotId * recordSize
+        long slotPos = blockOffset + 4L + (long) nextSlot * recordSize;
+
+        // (α) Γράφουμε id (8 bytes)
+        ByteBuffer idBuf = ByteBuffer.allocate(8);
+        idBuf.putLong(rec.getId()).flip();
+        channel.write(idBuf, slotPos);
+
+        // (β) Γράφουμε name (256 bytes, UTF-8 padded με μηδενικά)
+        ByteBuffer nameBuf = ByteBuffer.allocate(256);
+        byte[] nameBytes = rec.getName().getBytes(StandardCharsets.UTF_8);
+        int copyLen = Math.min(nameBytes.length, 256);
+        nameBuf.put(nameBytes, 0, copyLen);
+        nameBuf.flip();
+        channel.write(nameBuf, slotPos + 8);
+
+        // (γ) Γράφουμε coords (8×dim bytes)
+        ByteBuffer coordsBuf = ByteBuffer.allocate(8 * dimension);
+        for (double c : rec.getCoords()) {
+            coordsBuf.putDouble(c);
+        }
+        coordsBuf.flip();
+        channel.write(coordsBuf, slotPos + 8 + 256);
+
+        // Ενημερώνουμε το live count αυτού του block (header)
+        int liveInBlock = nextSlot + 1;
+        ByteBuffer liveBuf = ByteBuffer.allocate(4);
+        liveBuf.putInt(liveInBlock).flip();
+        channel.write(liveBuf, blockOffset);
+
+        // Αυξάνουμε counters
+        RecordPointer rp = new RecordPointer(currentBlockId, nextSlot);
+        nextSlot++;
+        totalRecords++;
+
+        // Αν γεμίσαμε το block, ανοίγουμε νέο data-block στο επόμενο insert
+        if (nextSlot >= slotsPerBlock) {
+            currentBlockId = totalBlocks; // νέο blockId
+            totalBlocks++;
+            nextSlot = 0;
+            writeMetadata();             // ενημέρωση metadata (block 0)
+        }
+
+        return rp;
+    }
+
+    /**
+     * Διαβάζει ένα Record με βάση το RecordPointer (blockId, slotId).
+     * Επιστρέφει το αντικείμενο Record.
      */
     public Record readRecord(RecordPointer rp) throws IOException {
         int blockId = rp.getBlockId();
         int slotId = rp.getSlotId();
         long blockOffset = (long) blockId * BLOCK_SIZE;
-        long slotOffset = blockOffset + 4L + (long) slotId * recordSize;
 
-        ByteBuffer buf = ByteBuffer.allocate(recordSize);
-        channel.read(buf, slotOffset);
-        buf.flip();
+        // (α) Διαβάζουμε id (8 bytes)
+        long slotPos = blockOffset + 4L + (long) slotId * recordSize;
+        ByteBuffer idBuf = ByteBuffer.allocate(8);
+        channel.read(idBuf, slotPos);
+        idBuf.flip();
+        long id = idBuf.getLong();
 
-        long id = buf.getLong();
+        // (β) Διαβάζουμε name (256 bytes)
+        ByteBuffer nameBuf = ByteBuffer.allocate(256);
+        channel.read(nameBuf, slotPos + 8);
+        nameBuf.flip();
+        int strLen = 0;
+        while (strLen < 256 && nameBuf.get(strLen) != 0) {
+            strLen++;
+        }
+        byte[] nameBytes = new byte[strLen];
+        nameBuf.position(0);
+        nameBuf.get(nameBytes, 0, strLen);
+        String name = new String(nameBytes, StandardCharsets.UTF_8);
 
-        byte[] nameBytes = new byte[256];
-        buf.get(nameBytes);
-        String name = new String(nameBytes, "UTF-8").trim();
-
+        // (γ) Διαβάζουμε coords (8×dim bytes)
+        ByteBuffer coordsBuf = ByteBuffer.allocate(8 * dimension);
+        channel.read(coordsBuf, slotPos + 8 + 256);
+        coordsBuf.flip();
         double[] coords = new double[dimension];
         for (int i = 0; i < dimension; i++) {
-            coords[i] = buf.getDouble();
+            coords[i] = coordsBuf.getDouble();
         }
 
         return new Record(id, name, coords);
     }
 
-    /**
-     * Δημιουργεί νέο block γράφοντας header=0 και μηδενίζοντας τους μετρητές.
-     */
-    private void createNewBlock() throws IOException {
-        int newBlock = currentBlockId + 1;
-        long blockOffset = (long) newBlock * BLOCK_SIZE;
-        ByteBuffer headerBuf = ByteBuffer.allocate(4);
-        headerBuf.putInt(0).flip();
-        channel.write(headerBuf, blockOffset);
-
-        this.currentBlockId = newBlock;
-        this.nextSlot = 0;
-        this.liveCount = 0;
-    }
-
-    /** Κλείνει το FileChannel. */
+    /** Κλείνει το underlying FileChannel. */
     public void close() throws IOException {
         channel.close();
     }

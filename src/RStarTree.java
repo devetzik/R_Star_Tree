@@ -1,5 +1,3 @@
-// RStarTree.java
-//
 // R*-tree χωρίς cache, με σωστή προώθηση του MBR προς τα πάνω μετά από κάθε εισαγωγή ή split.
 // Προϋποθέτει ότι οι κλάσεις DataFile, IndexFile, Node, Entry, MBR, SplitResult, RecordPointer, Record, NNEntry
 // βρίσκονται στο ίδιο πακέτο ή είναι import‐αρισμένες.
@@ -555,29 +553,22 @@ public class RStarTree {
         int slotsPerBlock = dataFile.getSlotsPerBlock();
         int recordSize = dataFile.getRecordSize();
 
-        for (int blkId = 0; blkId < totalBlocks; blkId++) {
+        // Ξεκινάμε από block 1 (block 0 = metadata)
+        for (int blkId = 1; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
-
-            // 1) Διαβάζουμε το header (live count) των πρώτων 4 bytes του block
             ByteBuffer headerBuf = ByteBuffer.allocate(4);
             channel.read(headerBuf, blockOffset);
             headerBuf.flip();
-            int live = headerBuf.getInt(); // valid slots σε αυτό το block
+            int live = headerBuf.getInt(); // πόσα valid slots
 
-            // 2) Σκανάρουμε μόνο τα slots [0 .. live-1]
             for (int slot = 0; slot < live; slot++) {
                 long slotPos = blockOffset + 4L + (long) slot * recordSize;
-
-                // (α) Διαβάζουμε το id
                 ByteBuffer idBuf = ByteBuffer.allocate(8);
                 channel.read(idBuf, slotPos);
                 idBuf.flip();
                 long id = idBuf.getLong();
+                if (id <= 0L) continue; // άκυρο
 
-                // Αν id <= 0 (θεωρήθηκε διαγραμμένο ή κενό), το αγνοούμε
-                if (id <= 0L) continue;
-
-                // (β) Διαβάζουμε τις συντεταγμένες μετά το id (8 bytes) + όνομα (256 bytes)
                 long coordsPos = slotPos + 8 + 256;
                 ByteBuffer coordsBuf = ByteBuffer.allocate(8 * dim);
                 channel.read(coordsBuf, coordsPos);
@@ -586,21 +577,19 @@ public class RStarTree {
                 for (int i = 0; i < dim; i++) {
                     coords[i] = coordsBuf.getDouble();
                 }
-
-                // Προσθέτουμε το σημείο στη λίστα
                 RecordPointer rp = new RecordPointer(blkId, slot);
                 points.add(new PointRP(coords, rp));
             }
         }
 
-        // 3) Ταξινόμηση κατά coords[0] (και tie-break κατά coords[1])
+        // Ταξινόμηση κατά πρώτη διάσταση (και tie-break κατά δεύτερη)
         points.sort((a, b) -> {
             int cmp = Double.compare(a.coords[0], b.coords[0]);
             if (cmp != 0) return cmp;
             return Double.compare(a.coords[1], b.coords[1]);
         });
 
-        // 4) Ένα πέρασμα για nondominated σύμφωνα με coords[1]
+        // Πέρασμα για nondominated κατά y
         List<RecordPointer> skyline = new ArrayList<>();
         double bestY = Double.POSITIVE_INFINITY;
         for (PointRP pr : points) {
@@ -612,6 +601,7 @@ public class RStarTree {
         }
         return skyline;
     }
+
 
     /** Εσωτερική helper κλάση για skylineQuery: συνδυάζει coords + RecordPointer. */
     private static class PointRP {

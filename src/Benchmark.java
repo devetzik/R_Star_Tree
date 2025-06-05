@@ -253,26 +253,28 @@ public class Benchmark {
         List<RecordPointer> result = new ArrayList<>();
         FileChannel channel = df.getChannel();
         int blockSize    = DataFile.BLOCK_SIZE;
-        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
         int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
-        for (int blkId = 0; blkId < totalBlocks; blkId++) {
+        // Ξεκινάμε από το block 1 (το block 0 είναι metadata)
+        for (int blkId = 1; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
+            // Διαβάζουμε το live count από τα πρώτα 4 bytes
             ByteBuffer headerBuf = ByteBuffer.allocate(4);
             channel.read(headerBuf, blockOffset);
             headerBuf.flip();
             int live = headerBuf.getInt();
 
-            for (int slot = 0; slot < slotsPerBlock; slot++) {
+            for (int slot = 0; slot < live; slot++) {
                 long slotPos = blockOffset + 4L + (long) slot * recordSize;
                 ByteBuffer idBuf = ByteBuffer.allocate(8);
                 channel.read(idBuf, slotPos);
                 idBuf.flip();
                 long id = idBuf.getLong();
-                if (id == -1L) continue; // διαγραμμένο
+                if (id == -1L) continue; // διαγραμμένο (ή άκυρο)
 
                 long coordsPos = slotPos + 8 + 256;
                 ByteBuffer coordsBuf = ByteBuffer.allocate(8 * dim);
@@ -297,6 +299,7 @@ public class Benchmark {
         return result;
     }
 
+
     private static List<RecordPointer> kNNQuerySerial(DataFile df,
                                                       double[] queryPt,
                                                       int k) throws IOException {
@@ -312,20 +315,21 @@ public class Benchmark {
 
         FileChannel channel = df.getChannel();
         int blockSize    = DataFile.BLOCK_SIZE;
-        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
         int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
-        for (int blkId = 0; blkId < totalBlocks; blkId++) {
+        for (int blkId = 1; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
+            // Διαβάζουμε live count
             ByteBuffer headerBuf = ByteBuffer.allocate(4);
             channel.read(headerBuf, blockOffset);
             headerBuf.flip();
             int live = headerBuf.getInt();
 
-            for (int slot = 0; slot < slotsPerBlock; slot++) {
+            for (int slot = 0; slot < live; slot++) {
                 long slotPos = blockOffset + 4L + (long) slot * recordSize;
                 ByteBuffer idBuf = ByteBuffer.allocate(8);
                 channel.read(idBuf, slotPos);
@@ -359,6 +363,7 @@ public class Benchmark {
         return result;
     }
 
+
     private static List<RecordPointer> skylineSerial(DataFile df) throws IOException {
         class PointWithRP {
             double[] coords;
@@ -368,20 +373,20 @@ public class Benchmark {
 
         FileChannel channel = df.getChannel();
         int blockSize    = DataFile.BLOCK_SIZE;
-        long fileSize    = new RandomAccessFile(DATAFILE_NAME, "r").length();
+        long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
         int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
-        for (int blkId = 0; blkId < totalBlocks; blkId++) {
+        for (int blkId = 1; blkId < totalBlocks; blkId++) {
             long blockOffset = (long) blkId * blockSize;
             ByteBuffer headerBuf = ByteBuffer.allocate(4);
             channel.read(headerBuf, blockOffset);
             headerBuf.flip();
             int live = headerBuf.getInt();
 
-            for (int slot = 0; slot < slotsPerBlock; slot++) {
+            for (int slot = 0; slot < live; slot++) {
                 long slotPos = blockOffset + 4L + (long) slot * recordSize;
                 ByteBuffer idBuf = ByteBuffer.allocate(8);
                 channel.read(idBuf, slotPos);
@@ -422,6 +427,7 @@ public class Benchmark {
         }
         return skyline;
     }
+
 
     private static boolean dominates(double[] q, double[] p) {
         boolean strictlyBetter = false;

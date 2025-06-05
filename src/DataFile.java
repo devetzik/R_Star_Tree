@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 
 public class DataFile {
     public static final int BLOCK_SIZE = 32 * 1024; // 32 KB ανά block
@@ -126,7 +127,7 @@ public class DataFile {
         buf.putLong(r.getId());
 
         byte[] nameBytes = new byte[256];
-        byte[] actualName = r.getName().getBytes("UTF-8");
+        byte[] actualName = r.getName().getBytes(StandardCharsets.UTF_8);
         int len = Math.min(actualName.length, 256);
         System.arraycopy(actualName, 0, nameBytes, 0, len);
         buf.put(nameBytes);

@@ -4,9 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="CHECKPOINT. ALL WORK">
-      <change afterPath="$PROJECT_DIR$/.gitattributes" afterDir="false" />
+    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="CHECKPOINT. add to github">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.idx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/map.osm" beforeDir="false" afterPath="$PROJECT_DIR$/map.osm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/DataFile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/DataFile.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Entry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Entry.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IndexFile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/IndexFile.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/MBR.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MBR.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/NNEntry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/NNEntry.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Node.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Node.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/OSMParser.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/OSMParser.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RStarTree.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RStarTree.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Record.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Record.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RecordPointer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RecordPointer.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,18 +34,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "devetzik"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;devetzik&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/devetzik/R_Star_Tree.git",
-    "accountId": "7c2e578e-7d0e-4e3d-9c35-2d7ea4fbab6b"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/devetzik/R_Star_Tree.git&quot;,
+    &quot;accountId&quot;: &quot;7c2e578e-7d0e-4e3d-9c35-2d7ea4fbab6b&quot;
   }
-}]]></component>
+}</component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -52,13 +63,14 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Application.Benchmark.executor": "Run",
+    "Application.Demo.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "main"
   }
 }]]></component>
-  <component name="RunManager" selected="Application.Benchmark">
+  <component name="RunManager" selected="Application.Demo">
     <configuration name="Benchmark" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="Benchmark" />
       <module name="R_Star_Tree" />
@@ -75,8 +87,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Application.Benchmark" />
         <item itemvalue="Application.Demo" />
+        <item itemvalue="Application.Benchmark" />
       </list>
     </recent_temporary>
   </component>

@@ -1,5 +1,3 @@
-// NNEntry.java
-//
 // Χρησιμοποιείται για best-first k-NN query: είτε Node με dist, είτε Entry με dist.
 
 public class NNEntry implements Comparable<NNEntry> {
@@ -31,10 +29,6 @@ public class NNEntry implements Comparable<NNEntry> {
 
     public Entry getEntry() {
         return entry;
-    }
-
-    public double getDistance() {
-        return distance;
     }
 
     @Override

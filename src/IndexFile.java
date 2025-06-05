@@ -1,9 +1,8 @@
-// IndexFile.java
-//
 // Δισκο-βασισμένο αρχείο για αποθήκευση κόμβων (Node) του R*-tree.
 // Κάθε σελίδα (page) = 32KB, header 4 bytes για liveCount (1 = έγκυρος κόμβος).
 // Κάθε Node serializes: isLeaf (1B), level (4B), parentPage (4B),
 // M * [ 16·DIM bytes (MBR) + 8 bytes pointer (childPage ή recordPointer) ].
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -17,10 +16,8 @@ public class IndexFile {
     private final int SLOTS_PER_PAGE;    // slots/page (συνήθως 1)
 
     private FileChannel channel;
-    private String filename;
 
     public IndexFile(String filename, int dimension) throws IOException {
-        this.filename = filename;
         this.DIM = dimension;
         // 1B isLeaf + 4B level + 4B parentPage
         int headerBytes = 1 + 4 + 4;
@@ -140,8 +137,7 @@ public class IndexFile {
                 }
             } else {
                 if (a != 0) {
-                    int childPage = a;
-                    node.addEntry(new Entry(mbr, childPage));
+                    node.addEntry(new Entry(mbr, a));
                 }
             }
         }

@@ -1,7 +1,6 @@
-// Node.java
-//
 // Κλάση που αναπαριστά έναν κόμβο στο R*-tree.
 // Κάθε κόμβος έχει level (0=leaf), isLeaf flag, λίστα Entry, MBR, parentPage, pageId.
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,11 +61,6 @@ public class Node {
         }
     }
 
-    public void removeEntry(Entry e) {
-        entries.remove(e);
-        recomputeMBR();
-    }
-
     public void recomputeMBR() {
         if (entries.isEmpty()) {
             mbr = null;
@@ -82,9 +76,5 @@ public class Node {
     public void recomputeMBRUpward() {
         recomputeMBR();
         // Ο γονέας θα ενημερωθεί από το RStarTree όταν χρειάζεται
-    }
-
-    public boolean underflows(int m) {
-        return entries.size() < m;
     }
 }

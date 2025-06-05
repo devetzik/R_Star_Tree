@@ -1,6 +1,5 @@
-// RecordPointer.java
-//
 // Δείκτης σε εγγραφή μέσα στο DataFile: blockId και slotId.
+
 public class RecordPointer {
     private int blockId;
     private int slotId;

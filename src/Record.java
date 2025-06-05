@@ -1,6 +1,5 @@
-// Record.java
-//
 // Αναπαριστά ένα σημείο (node) με id, όνομα, και διάνυσμα συντεταγμένων.
+
 import java.io.Serializable;
 
 public class Record implements Serializable {
@@ -26,4 +25,3 @@ public class Record implements Serializable {
         return coords;
     }
 }
-

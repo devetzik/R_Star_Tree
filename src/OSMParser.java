@@ -1,5 +1,3 @@
-// OSMParser.java
-//
 // Χρησιμοποιεί SAX για streaming parsing του αρχείου .osm.
 // Κάθε <node> γίνεται Record και εισάγεται στον R*-tree.
 
@@ -12,11 +10,9 @@ import java.io.IOException;
 
 public class OSMParser {
     private RStarTree tree;
-    private DataFile dataFile;
 
     public OSMParser(RStarTree tree, DataFile df) {
         this.tree = tree;
-        this.dataFile = df;
     }
 
     public void parse(String filename) throws ParserConfigurationException, SAXException, IOException {

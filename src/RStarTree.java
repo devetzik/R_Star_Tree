@@ -409,11 +409,10 @@ public class RStarTree {
      * Επιστρέφει SplitResult με δύο λίστες entries.
      */
     private SplitResult chooseSplit(Node N) {
-        int dim = DIM;
         double bestMarginSum = Double.POSITIVE_INFINITY;
         SplitResult bestSplit = null;
 
-        for (int d = 0; d < dim; d++) {
+        for (int d = 0; d < DIM; d++) {
             final int dimIndex = d;
 
             List<Entry> sortByMin = new ArrayList<>(N.getEntries());

@@ -1,5 +1,3 @@
-// Υλοποίηση της κλάσης MBR με σωστή κλωνοποίηση (clone) μέσω super.clone().
-
 public class MBR implements Cloneable {
     private double[] min;  // χαμηλότερες συντεταγμένες
     private double[] max;  // υψηλότερες συντεταγμένες

@@ -208,12 +208,10 @@ public class DataFile {
      * Επιστρέφει το αντικείμενο Record.
      */
     public Record readRecord(RecordPointer rp) throws IOException {
-        int blockId = rp.getBlockId();
-        int slotId = rp.getSlotId();
-        long blockOffset = (long) blockId * BLOCK_SIZE;
+        long blockOffset = (long) rp.getBlockId() * BLOCK_SIZE;
 
         // (α) Διαβάζουμε id (8 bytes)
-        long slotPos = blockOffset + 4L + (long) slotId * recordSize;
+        long slotPos = blockOffset + 4L + (long) rp.getSlotId() * recordSize;
         ByteBuffer idBuf = ByteBuffer.allocate(8);
         channel.read(idBuf, slotPos);
         idBuf.flip();

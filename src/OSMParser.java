@@ -1,9 +1,3 @@
-// OSMParser.java
-//
-// Ενημερωμένη εκδοχή που ανατίθεται ένα τυχαίο “μικρό” όνομα
-// σε κόμβους που δεν έχουν tag name.
-// Χρησιμοποιεί ThreadLocalRandom για τη δημιουργία τυχαίου ονόματος.
-
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.xml.parsers.ParserConfigurationException;

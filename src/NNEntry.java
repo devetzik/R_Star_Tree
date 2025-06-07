@@ -1,9 +1,9 @@
 // Χρησιμοποιείται για best-first k-NN query: είτε Node με dist, είτε Entry με dist.
 
 public class NNEntry implements Comparable<NNEntry> {
-    private Node node;      // αν πρόκειται για κόμβο
-    private Entry entry;    // αν πρόκειται για leaf entry
-    private double distance;
+    private final Node node;      // αν πρόκειται για κόμβο
+    private final Entry entry;    // αν πρόκειται για leaf entry
+    private final double distance;
 
     // Constructor για node
     public NNEntry(Node node, double distance) {

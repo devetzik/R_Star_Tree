@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
@@ -20,22 +19,20 @@ public class Benchmark {
 
     public static void main(String[] args) {
         try {
-            // ───────────────────────────────────────────────────────────────
+
             // 1) Φόρτωση όλων των κόμβων από το OSM σε λίστα Record
-            // ───────────────────────────────────────────────────────────────
             System.out.println("1) Φόρτωση OSM κόμβων σε ενδιάμεση λίστα Record...");
             long t0 = System.nanoTime();
-            List<Record> records = loadAllOSMRecords(OSM_FILE);
+            List<Record> records = loadAllOSMRecords();
             long t1 = System.nanoTime();
             System.out.printf("   Φορτώθηκαν %d κόμβοι σε %.2f ms%n",
                     records.size(), (t1 - t0) / 1_000_000.0);
 
-            // ───────────────────────────────────────────────────────────────
+
             // 2) Γράφουμε **μία φορά** όλα τα records στο DataFile
             //    (σειριακή εισαγωγή), αποθηκεύουμε (RecordPointer, coords)
             //    σε δύο λίστες, ώστε στο index build να μην ξανασκανάρουμε
             //    τον δίσκο για το DataFile.
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n2) Μία φορά σειριακή εισαγωγή όλων των Record στο DataFile...");
             DataFile dfInit = new DataFile(DATAFILE_NAME, DIMENSIONS);
 
@@ -53,9 +50,8 @@ public class Benchmark {
 
             dfInit.close();
 
-            // ───────────────────────────────────────────────────────────────
+
             // 3) Κατασκευή R*-tree με “insert ένα-προς-ένα” (με insertPointer)
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n3) Κατασκευή R*-tree με insertPointer (ένα-προς-ένα)...");
             DataFile df1 = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idx1 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -72,9 +68,8 @@ public class Benchmark {
             df1.close();
             idx1.close();
 
-            // ───────────────────────────────────────────────────────────────
+
             // 4) Κατασκευή R*-tree με bulkLoad
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n4) Κατασκευή R*-tree με bulkLoad...");
             DataFile df2 = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idx2 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -89,15 +84,13 @@ public class Benchmark {
             df2.close();
             idx2.close();
 
-            // ───────────────────────────────────────────────────────────────
+
             // 5) Προετοιμασία τυχαίων σημείων για queries
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n5) Προετοιμασία τυχαίων ερωτημάτων...");
             List<double[]> samplePoints = pickRandomCoordinates(records, NUM_POINTS_FOR_QUERIES);
 
-            // ───────────────────────────────────────────────────────────────
+
             // 6) Εκτέλεση Range Queries
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n6) Ερωτήματα περιοχής (Range Queries):");
             DataFile dfSerialRange = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForRange = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -128,12 +121,44 @@ public class Benchmark {
                     totalSerialRangeTime / NUM_RANGE_QUERIES);
             System.out.printf("   Μέσος χρόνος RangeQuery (R*-tree): %.2f ms%n",
                     totalIndexRangeTime / NUM_RANGE_QUERIES);
+
+
+            // 6.5) χρόνοι vs R
+            double[] radii = { 0.002, 0.005, 0.01, 0.02, 0.05, 0.1};  // τιμές δοκιμών
+            int repeatsPerR = 100;  // πόσες φορές εκτελούμε (με διαφορετικά σημεία) για κάθε R
+
+            System.out.println("\n6.5) Χρόνοι RangeQuery vs ακτίνα R:");
+            for (double radius : radii) {
+                double totalSerial = 0, totalIndex = 0;
+                // Για κάθε R παίρνουμε repeatsPerR τυχαία κέντρα
+                for (int t = 0; t < repeatsPerR; t++) {
+                    double[] center = samplePoints.get(t);
+                    double[] minR = { center[0] - radius, center[1] - radius };
+                    double[] maxR = { center[0] + radius, center[1] + radius };
+
+                    // Σειριακό
+                    long ts0 = System.nanoTime();
+                    rangeQuerySerial(dfSerialRange, minR, maxR);
+                    long ts1 = System.nanoTime();
+                    totalSerial += (ts1 - ts0) / 1_000_000.0;
+
+                    // Με R*-tree
+                    long ti0 = System.nanoTime();
+                    treeForRange.rangeQuery(minR, maxR);
+                    long ti1 = System.nanoTime();
+                    totalIndex += (ti1 - ti0) / 1_000_000.0;
+                }
+                double avgSerial = totalSerial / repeatsPerR;
+                double avgIndex  = totalIndex  / repeatsPerR;
+                System.out.printf("   R = %.3f - Serial avg: %.2f ms, R*-tree avg: %.2f ms%n",
+                        radius, avgSerial, avgIndex);
+            }
+
             dfSerialRange.close();
             idxForRange.close();
 
-            // ───────────────────────────────────────────────────────────────
+
             // 7) Εκτέλεση k-NN Queries
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n7) Ερωτήματα k-NN:");
             DataFile dfSerialKNN = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForKNN = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -164,9 +189,8 @@ public class Benchmark {
             dfSerialKNN.close();
             idxForKNN.close();
 
-            // ───────────────────────────────────────────────────────────────
+
             // 8) Εκτέλεση Skyline Query
-            // ───────────────────────────────────────────────────────────────
             System.out.println("\n8) Ερώτημα Skyline:");
             DataFile dfSerialSky = new DataFile(DATAFILE_NAME, DIMENSIONS);
             IndexFile idxForSky = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
@@ -190,6 +214,51 @@ public class Benchmark {
             dfSerialSky.close();
             idxForSky.close();
 
+
+            // 9) Μετρήσεις k-NN για 100 τυχαία σημεία, όσο μεγαλώνει το k
+            System.out.println("\n9) Μετρήσεις k-NN όσο μεγαλώνει το k (avg από queries 100 τυχαίων σημείων.)");
+
+            // Ετοιμάζουμε DataFile, IndexFile και δέντρο (με bulkLoad)
+            DataFile dfKnn2 = new DataFile(DATAFILE_NAME, DIMENSIONS);
+            IndexFile idxKnn2 = new IndexFile(INDEXFILE_NAME, DIMENSIONS);
+            RStarTree treeKnn2 = new RStarTree(DIMENSIONS, dfKnn2, idxKnn2);
+            treeKnn2.bulkLoad(records);
+
+            // Δημιουργούμε 100 τυχαία query σημεία
+            List<double[]> queryPoints = pickRandomCoordinates(records, 100);
+
+            // Οι τιμές του k που θα δοκιμάσουμε
+            int[] ks = { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+
+            for (int kVal : ks) {
+                double totalSerial = 0.0;
+                double totalIndex  = 0.0;
+
+                // Για κάθε query point μετράμε serial & R*-tree
+                for (double[] q : queryPoints) {
+                    long t = System.nanoTime();
+                    kNNQuerySerial(dfKnn2, q, kVal);
+                    long tt = System.nanoTime();
+                    totalSerial += (tt - t) / 1_000_000.0;
+
+                    long t2 = System.nanoTime();
+                    treeKnn2.kNNQuery(q, kVal);
+                    long t3 = System.nanoTime();
+                    totalIndex += (t3 - t2) / 1_000_000.0;
+                }
+
+                double avgSerial = totalSerial / queryPoints.size();
+                double avgIndex  = totalIndex  / queryPoints.size();
+
+                System.out.printf("   k = %3d : serial avg = %7.2f ms, R*-tree avg = %7.2f ms%n",
+                        kVal, avgSerial, avgIndex);
+            }
+
+            // Κλείσιμο αρχείων
+            dfKnn2.close();
+            idxKnn2.close();
+
+
             System.out.println("\n== Ολοκλήρωση Benchmark ==");
         }
         catch (IOException | ParserConfigurationException | SAXException e) {
@@ -197,18 +266,17 @@ public class Benchmark {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Βοηθητικές Μέθοδοι
-    // ─────────────────────────────────────────────────────────────────────────
 
-    private static List<Record> loadAllOSMRecords(String osmFilename)
+    //  Βοηθητικές Μέθοδοι
+
+    private static List<Record> loadAllOSMRecords()
             throws ParserConfigurationException, SAXException, IOException {
         List<Record> out = new ArrayList<>();
         javax.xml.parsers.SAXParserFactory factory =
                 javax.xml.parsers.SAXParserFactory.newInstance();
         javax.xml.parsers.SAXParser saxParser = factory.newSAXParser();
 
-        saxParser.parse(new java.io.File(osmFilename),
+        saxParser.parse(new java.io.File(Benchmark.OSM_FILE),
                 new org.xml.sax.helpers.DefaultHandler() {
                     private boolean inNode = false;
                     private long currentId;
@@ -236,15 +304,29 @@ public class Benchmark {
                     @Override
                     public void endElement(String uri, String localName, String qName) {
                         if (qName.equals("node") && inNode) {
+                            if (currentName == null || currentName.isEmpty()) {
+                                currentName = generateRandomName();
+                            }
                             double[] coords = {currentLat, currentLon};
-                            out.add(new Record(currentId,
-                                    currentName == null ? "" : currentName,
-                                    coords));
+                            out.add(new Record(currentId, currentName, coords));
                             inNode = false;
                         }
                     }
                 });
         return out;
+    }
+
+    /**
+     * Δημιουργεί ένα μικρό τυχαίο όνομα μήκους 6 χαρακτήρων από a–z.
+     */
+    private static String generateRandomName() {
+        int length = 6;
+        char[] buf = new char[length];
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        for (int i = 0; i < length; i++) {
+            buf[i] = (char)('a' + rnd.nextInt(26));
+        }
+        return new String(buf);
     }
 
     private static List<RecordPointer> rangeQuerySerial(DataFile df,
@@ -256,7 +338,6 @@ public class Benchmark {
         long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
-        int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
         // Ξεκινάμε από το block 1 (το block 0 είναι metadata)
@@ -318,7 +399,6 @@ public class Benchmark {
         long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
-        int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
         for (int blkId = 1; blkId < totalBlocks; blkId++) {
@@ -376,7 +456,6 @@ public class Benchmark {
         long fileSize    = channel.size();
         int totalBlocks  = (int) (fileSize / blockSize);
         int dim          = df.getDimension();
-        int slotsPerBlock= df.getSlotsPerBlock();
         int recordSize   = df.getRecordSize();
 
         for (int blkId = 1; blkId < totalBlocks; blkId++) {

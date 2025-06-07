@@ -38,42 +38,6 @@ public class RStarTree {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Σειριακή εισαγωγή Record (insert).
-    // ─────────────────────────────────────────────────────────────────────────
-    /**
-     * Εισάγει ένα Record: πρώτα στο DataFile και μετά ως leaf‐entry στο R*-tree.
-     * Επιστρέφει τον RecordPointer για τη θέση στο DataFile.
-     */
-    public RecordPointer insert(Record rec) throws IOException {
-        // 1) Εισαγωγή στο DataFile
-        RecordPointer rp = dataFile.insertRecord(rec);
-
-        // 2) Δημιουργία leaf‐entry
-        MBR singleMBR = new MBR(rec.getCoords(), rec.getCoords());
-        Entry newEntry = new Entry(singleMBR, rp);
-
-        // 3) Επιλογή κατάλληλου φύλλου (chooseLeaf)
-        Node leaf = chooseLeaf(root, newEntry);
-
-        // 4) Προσθήκη στο leaf + γράφουμε πίσω + ενημέρωση MBR προς τα πάνω
-        leaf.addEntry(newEntry);
-        leaf.recomputeMBRUpward();
-        indexFile.writeNode(leaf.getPageId(), leaf);
-        adjustTree(leaf);
-
-        // 5) Αν overflow, κάνουμε handleOverflow
-        if (leaf.getEntries().size() > M) {
-            handleOverflow(leaf);
-        }
-
-        // 6) Αν το root έχει αλλάξει, το ανανεώνουμε
-        if (root.getParentPage() >= 0) {
-            root = indexFile.readNode(root.getParentPage());
-        }
-        return rp;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Εισαγωγή pointer χωρίς DataFile (insertPointer).
     // ─────────────────────────────────────────────────────────────────────────
     /**
@@ -452,10 +416,8 @@ public class RStarTree {
 
                 if (marginSumLocal < bestMarginSum) {
                     bestMarginSum = marginSumLocal;
-                    List<Entry> sortedBest = sorted;
-                    int k = bestKLocal;
-                    List<Entry> group1 = new ArrayList<>(sortedBest.subList(0, k));
-                    List<Entry> group2 = new ArrayList<>(sortedBest.subList(k, sortedBest.size()));
+                    List<Entry> group1 = new ArrayList<>(sorted.subList(0, bestKLocal));
+                    List<Entry> group2 = new ArrayList<>(sorted.subList(bestKLocal, sorted.size()));
                     bestSplit = new SplitResult(group1, group2);
                 }
             }

@@ -4,13 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="add name generator">
+    <list default="true" id="7a25d5fe-ee9b-48a4-92f8-c84b9555f6d5" name="Changes" comment="add block0 metadata">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.idx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/map.dbf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/map.osm" beforeDir="false" afterPath="$PROJECT_DIR$/map.osm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/Benchmark.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Benchmark.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/DataFile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/DataFile.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Demo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Demo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/IndexFile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/IndexFile.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/MBR.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MBR.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Main.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/NNEntry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/NNEntry.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Node.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Node.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/OSMParser.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/OSMParser.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/RStarTree.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RStarTree.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RecordPointer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/RecordPointer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/SplitResult.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SplitResult.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,17 +61,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Application.Benchmark.executor": "Run",
-    "Application.Demo.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.Benchmark.executor&quot;: &quot;Run&quot;,
+    &quot;Application.Demo.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;
   }
-}]]></component>
-  <component name="RunManager" selected="Application.Demo">
+}</component>
+  <component name="RunManager" selected="Application.Benchmark">
     <configuration name="Benchmark" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="Benchmark" />
       <module name="R_Star_Tree" />
@@ -80,8 +88,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Application.Demo" />
         <item itemvalue="Application.Benchmark" />
+        <item itemvalue="Application.Demo" />
       </list>
     </recent_temporary>
   </component>
@@ -152,7 +160,15 @@
       <option name="project" value="LOCAL" />
       <updated>1749138686509</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="add block0 metadata">
+      <option name="closed" value="true" />
+      <created>1749140744797</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1749140744797</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -191,6 +207,7 @@
     <MESSAGE value="CHECKPOINT. ALL WORK" />
     <MESSAGE value="code cleanup, some javadoc" />
     <MESSAGE value="add name generator" />
-    <option name="LAST_COMMIT_MESSAGE" value="add name generator" />
+    <MESSAGE value="add block0 metadata" />
+    <option name="LAST_COMMIT_MESSAGE" value="add block0 metadata" />
   </component>
 </project>

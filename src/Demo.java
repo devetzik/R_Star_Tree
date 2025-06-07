@@ -5,7 +5,6 @@
 //  • Για κάθε RecordPointer που επιστρέφεται, διαβάζει το Record από το DataFile
 //    και τυπώνει το id, το name και τις συντεταγμένες.
 
-// minlat="40.5979960" minlon="22.9641400" maxlat="40.6029480" maxlon="22.9759960"
 import java.io.IOException;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
@@ -19,6 +18,7 @@ public class Demo {
     private static final double[] MIN_COORDS = { 40.5979960, 22.9641400 };  // Range Query
     private static final double[] MAX_COORDS = { 40.6, 22.97 };  // Range Query
     private static final double[] QUERY_PT = { 40.5979, 22.9645 };  // k-NN
+    private static final int K_NEIGHBORS = 5;
 
 
     public static void main(String[] args) {
@@ -52,10 +52,9 @@ public class Demo {
             }
 
             // 4) Παράδειγμα k-NN Query:
-            int k = 5;
             System.out.println("\n4) Παράδειγμα k-NN Query:");
-            List<RecordPointer> knnRes = tree.kNNQuery(QUERY_PT, k);
-            System.out.printf("   %d πλησιέστερα σημεία στο (%.6f, %.6f):%n", k, QUERY_PT[0], QUERY_PT[1]);
+            List<RecordPointer> knnRes = tree.kNNQuery(QUERY_PT, K_NEIGHBORS);
+            System.out.printf("   %d πλησιέστερα σημεία στο (%.6f, %.6f):%n", K_NEIGHBORS, QUERY_PT[0], QUERY_PT[1]);
             for (int i = 0; i < knnRes.size(); i++) {
                 RecordPointer rp = knnRes.get(i);
                 Record rec = df.readRecord(rp);

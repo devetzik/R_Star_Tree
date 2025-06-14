@@ -1,8 +1,3 @@
-// DataFile.java
-//
-// DataFile με block-size 32 KB, όπου το block 0 χρησιμοποιείται μόνον για metadata.
-// Τα δεδομένα (records) ξεκινούν από το block 1 και μετά.
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -19,7 +14,6 @@ public class DataFile {
     private final FileChannel channel;
     private final String filename;
 
-    // Για append-only εισαγωγή
     private int currentBlockId; // το τρέχον data-block στο οποίο γράφουμε (ξεκινάει από 1)
     private int nextSlot;       // θέση (slot index) μέσα στο currentBlockId (0..slotsPerBlock-1)
     private int totalRecords;   // συνολικό πλήθος εγγραφών

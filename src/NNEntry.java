@@ -1,5 +1,3 @@
-// Χρησιμοποιείται για best-first k-NN query: είτε Node με dist, είτε Entry με dist.
-
 public class NNEntry implements Comparable<NNEntry> {
     private final Node node;      // αν πρόκειται για κόμβο
     private final Entry entry;    // αν πρόκειται για leaf entry

@@ -1,10 +1,3 @@
-//  • Δημιουργεί DataFile, IndexFile και RStarTree.
-//  • Καλεί τον OSMParser ώστε να διαβάσει το map.osm και να εισάγει απευθείας
-//    τα Record στο DataFile και στο R*-tree (μέσω insertPointer).
-//  • Εκτελεί ένα παράδειγμα ερωτήματος περιοχής, k-NN και skyline.
-//  • Για κάθε RecordPointer που επιστρέφεται, διαβάζει το Record από το DataFile
-//    και τυπώνει το id, το name και τις συντεταγμένες.
-
 import java.io.IOException;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
@@ -12,8 +5,8 @@ import java.util.List;
 
 public class Demo {
     private static final String OSM_FILENAME    = "map.osm";
-    private static final String DATAFILE_NAME   = "map.dbf";
-    private static final String INDEXFILE_NAME  = "index.idx";
+    private static final String DATAFILE_NAME   = "datafile.csv";
+    private static final String INDEXFILE_NAME  = "indexfile.dat";
     private static final int    DIMENSIONS      = 2;
     private static final double[] MIN_COORDS = { 40.5979960, 22.9641400 };  // Range Query
     private static final double[] MAX_COORDS = { 40.6, 22.97 };  // Range Query

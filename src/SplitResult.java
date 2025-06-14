@@ -1,8 +1,3 @@
-/**
- * Η κλάση SplitResult αντιπροσωπεύει το αποτέλεσμα ενός split κόμβου σε έναν R*-tree.
- * Κάθε split χωρίζει τα Entry ενός κόμβου σε δύο ομάδες, ώστε να δημιουργηθούν δύο
- * νέοι κόμβοι. Η SplitResult κρατάει τις δύο αυτές λίστες group1 και group2 των Entry.
- */
 import java.util.List;
 
 public class SplitResult {

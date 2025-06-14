@@ -1,6 +1,3 @@
-// Κλάση που αναπαριστά έναν κόμβο στο R*-tree.
-// Κάθε κόμβος έχει level (0=leaf), isLeaf flag, λίστα Entry, MBR, parentPage, pageId.
-
 import java.util.ArrayList;
 import java.util.List;
 

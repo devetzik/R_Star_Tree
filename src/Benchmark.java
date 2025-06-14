@@ -9,10 +9,11 @@ import org.xml.sax.SAXException;
 
 public class Benchmark {
     private static final String OSM_FILE               = "map.osm";
-    private static final String DATAFILE_NAME          = "map.dbf";
-    private static final String INDEXFILE_NAME         = "index.idx";
+    private static final String DATAFILE_NAME          = "datafile.csv";
+    private static final String INDEXFILE_NAME         = "indexfile.dat";
     private static final int    DIMENSIONS             = 2;
     private static final int    K_NEIGHBORS            = 5;
+
     private static final int    NUM_RANGE_QUERIES      = 10;
     private static final int    NUM_KNN_QUERIES        = 10;
     private static final int    NUM_POINTS_FOR_QUERIES = 100;
@@ -29,10 +30,8 @@ public class Benchmark {
                     records.size(), (t1 - t0) / 1_000_000.0);
 
 
-            // 2) Γράφουμε **μία φορά** όλα τα records στο DataFile
-            //    (σειριακή εισαγωγή), αποθηκεύουμε (RecordPointer, coords)
-            //    σε δύο λίστες, ώστε στο index build να μην ξανασκανάρουμε
-            //    τον δίσκο για το DataFile.
+            // 2) Γράφουμε όλα τα records στο DataFile (σειριακή εισαγωγή), αποθηκεύουμε (RecordPointer, coords)
+            //    σε δύο λίστες, ώστε στο index build να μην ξανασκανάρουμε τον δίσκο για το DataFile.
             System.out.println("\n2) Μία φορά σειριακή εισαγωγή όλων των Record στο DataFile...");
             DataFile dfInit = new DataFile(DATAFILE_NAME, DIMENSIONS);
 
@@ -381,9 +380,7 @@ public class Benchmark {
     }
 
 
-    private static List<RecordPointer> kNNQuerySerial(DataFile df,
-                                                      double[] queryPt,
-                                                      int k) throws IOException {
+    private static List<RecordPointer> kNNQuerySerial(DataFile df, double[] queryPt, int k) throws IOException {
         class Pair {
             double dist;
             RecordPointer rp;

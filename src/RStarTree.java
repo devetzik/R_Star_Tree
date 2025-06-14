@@ -1,6 +1,3 @@
-// R*-tree χωρίς cache, με σωστή προώθηση του MBR προς τα πάνω μετά από κάθε εισαγωγή ή split.
-// Προϋποθέτει ότι οι κλάσεις DataFile, IndexFile, Node, Entry, MBR, SplitResult, RecordPointer, Record, NNEntry
-// βρίσκονται στο ίδιο πακέτο ή είναι import‐αρισμένες.
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -37,9 +34,7 @@ public class RStarTree {
         this.root = newRoot;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Εισαγωγή pointer χωρίς DataFile (insertPointer).
-    // ─────────────────────────────────────────────────────────────────────────
     /**
      * Εισάγει ένα Entry με δεδομένο RecordPointer και coords.
      * Δεν γράφει νέο Record στο DataFile—χρησιμοποιείται για το bulkLoad.
@@ -63,9 +58,7 @@ public class RStarTree {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Επιλογή κατάλληλου φύλλου (chooseLeaf).
-    // ─────────────────────────────────────────────────────────────────────────
     private Node chooseLeaf(Node curr, Entry e) throws IOException {
         if (curr.isLeaf()) {
             return curr;
@@ -110,9 +103,7 @@ public class RStarTree {
         return chooseLeaf(indexFile.readNode(best.getChildPage()), e);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Διαχείριση overflow: reinsert ή split (handleOverflow).
-    // ─────────────────────────────────────────────────────────────────────────
     private void handleOverflow(Node N) throws IOException {
         if (N.getPageId() == root.getPageId()) {
             // Αν είναι root, απλώς split
@@ -131,9 +122,7 @@ public class RStarTree {
         return false;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Reinsert: αφαίρεση p entries και «συμπλήρωσή» τους από τη ρίζα
-    // ─────────────────────────────────────────────────────────────────────────
     private void reinsert(Node N) throws IOException {
         int p = (int) Math.floor(0.3 * M);
         double[] centroid = new double[DIM];
@@ -182,9 +171,7 @@ public class RStarTree {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Bulk-load: bottom-up κατασκευή χωρίς πολλαπλά overflows
-    // ─────────────────────────────────────────────────────────────────────────
     public void bulkLoad(List<Record> records) throws IOException {
         // Ταξινόμηση κατά πρώτη συντεταγμένη
         records.sort(Comparator.comparingDouble(r -> r.getCoords()[0]));
@@ -287,9 +274,7 @@ public class RStarTree {
         insertEntry(indexFile.readNode(best.getChildPage()), E, targetLevel);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Split κόμβου N σε N1, N2 και ενημέρωση parent (ή δημιουργία νέου root).
-    // ─────────────────────────────────────────────────────────────────────────
     private void splitNode(Node N) throws IOException {
         SplitResult sr = chooseSplit(N);
 
@@ -425,10 +410,7 @@ public class RStarTree {
         return bestSplit;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Queries: rangeQuery, kNNQuery, skylineQuery.
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
      * Range query: επιστρέφει List<RecordPointer> όλων των leaf entries
      * των οποίων οι συντεταγμένες εμπίπτουν εντός [minCoords, maxCoords].
@@ -498,9 +480,6 @@ public class RStarTree {
         return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SkylineQuery: O(n log n) υλοποίηση 2D skyline (μέσω απλού scan + sort).
-    // ─────────────────────────────────────────────────────────────────────────
     /**
      * Υπολογίζει το skyline από όλα τα records του DataFile.
      */
@@ -575,10 +554,7 @@ public class RStarTree {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Βοηθητικές κλάσεις / μέθοδοι: NNEntry, adjustTree
-    // ─────────────────────────────────────────────────────────────────────────
-
+    // Βοηθητική μέθοδος
     /**
      * Ενημερώνει αναδρομικά τα MBR όλων των κόμβων από τον κόμβο n έως τη ρίζα.
      * Κάθε φορά:

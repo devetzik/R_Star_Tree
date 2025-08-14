@@ -2,6 +2,8 @@
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.idea/
+R_Star_Tree.iml
 
 ### Eclipse ###
 .apt_generated
